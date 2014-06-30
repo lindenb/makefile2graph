@@ -22,7 +22,8 @@
 
    contact: Pierre Lindenbaum PhD @yokofakun
 
-/*
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
