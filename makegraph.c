@@ -31,32 +31,44 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define OUT_OF_MEMORY do { fputs("OUT_OF_MEMORY.\n",stderr); exit(EXIT_FAILURE);} while(0)
+#define OUT_OF_MEMORY do { fprintf(stderr,"%s: %d : OUT_OF_MEMORY.\n",__FILE__,__LINE__); exit(EXIT_FAILURE);} while(0)
 
-
+/** a Target */
 typedef struct target_t
 	{
+	/* target id */
 	size_t id;
+	/* filename */
 	char* name;
+	/* associated children, sorted by name */
 	struct target_t** children;
+	/* number of children */
 	size_t n_children;
+	/* target is dirty */
 	int must_remake;
 	}Target,*TargetPtr;
 
-
+/** the Makefile graph */
 typedef struct make2graph_t
 	{
+	/** all the targets , sorted by name */
 	TargetPtr* targets;
+	/** number of target */
 	size_t target_count;
+	/** root target */
 	TargetPtr root;
+	/** target id-generator */
 	size_t id_generator;
 	}Graph,*GraphPtr;
 
+
+/** compare target by name */
 static int TargetCmp(const void * a, const void * b)
 	{
 	return strcmp((*(TargetPtr*)a)->name,(*(TargetPtr*)b)->name);
 	}
 
+/** creates a new target */
 static TargetPtr TargetNew(GraphPtr graph,const char* name)
 	{
 	TargetPtr target=(TargetPtr)calloc(1,sizeof(Target));
@@ -67,22 +79,25 @@ static TargetPtr TargetNew(GraphPtr graph,const char* name)
 	return target;
 	}
 
+/** add a children to the specified target */
 static void TargetAddChildren(TargetPtr root, TargetPtr c)
 	{
 	TargetPtr* t=(TargetPtr*)bsearch((const void*)&c, (void*)root->children, root->n_children, sizeof(TargetPtr),TargetCmp);
         if(t!=0) return;
 	root->children=realloc(root->children,sizeof(TargetPtr)*(root->n_children+1));
+	if(root->children==NULL)  OUT_OF_MEMORY;
 	root->children[root->n_children++]=c;
 	qsort(root->children, root->n_children ,sizeof(TargetPtr) , TargetCmp);
 	}
 
-
+/** does string starts with substring */
 static int startsWith(const char* str,const char* pre)
 	{
     	size_t lenpre = strlen(pre), lenstr = strlen(str);
    	return lenstr < lenpre ? 0 : strncmp(pre, str, lenpre) == 0;
 	}
 
+/** extract filename between '`' and "'" */
 static char* targetName(const char* line)
 	{
 	char* p;
@@ -98,7 +113,7 @@ static char* targetName(const char* line)
 	return p;
 	}
 	
-	
+/** read line character by character */
 static char* readline(FILE* in)
 	{
 	int c;
@@ -153,6 +168,7 @@ static TargetPtr GraphGetTarget(GraphPtr graph,const char* name)
 	return t;
         }
 
+/** scan the makefile -nd output */
 static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
 	{
 	char* line=NULL;
@@ -200,7 +216,8 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
 		}
 	}
 
-void DumpGraphAsDot(GraphPtr g,FILE* out)
+/** export a graphiz dot */
+static void DumpGraphAsDot(GraphPtr g,FILE* out)
 	{
 	size_t i=0,j=0;
 	
@@ -214,7 +231,7 @@ void DumpGraphAsDot(GraphPtr g,FILE* out)
 		
 		
 		fprintf(out,
-			"n%d[label=\"%s\", color=\"%s\"];\n",
+			"n%zu[label=\"%s\", color=\"%s\"];\n",
 			t->id,
 			t->name,
 			(t->must_remake?"red":"green")
@@ -227,7 +244,7 @@ void DumpGraphAsDot(GraphPtr g,FILE* out)
 		for(j=0; j< t->n_children; ++j)
 			{
 			TargetPtr c = t->children[j];
-			fprintf(out,"n%d -> n%d ; \n", c->id , t->id);
+			fprintf(out,"n%zu -> n%zu ; \n", c->id , t->id);
 			}
 		}
 	fputs("}\n",out);
@@ -235,15 +252,15 @@ void DumpGraphAsDot(GraphPtr g,FILE* out)
 
 
 
-
+/** export a Gephi / Gexf */
 void DumpGraphAsGexf(GraphPtr g,FILE* out)
 	{
 	size_t i=0,j=0,k=0UL;
 	fputs("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",out);
 	fputs("<gexf xmlns=\"http://www.gexf.net/1.2draft\" version=\"1.2\">\n",out);
 	fputs("  <meta>\n",out);
-	fputs("    <creator>Pierre Lindenbaum</creator>\n",out);
-	fputs("    <description>Makefile Graph</description>\n",out);
+	fputs("    <creator>https://github.com/lindenb/makefile2graph</creator>\n",out);
+	fputs("    <description>Creates a graph from a Makefie</description>\n",out);
 	fputs("  </meta>\n",out);
 	fputs("  <graph mode=\"static\" defaultedgetype=\"directed\">\n",out);
 	fputs("    <attributes class=\"node\" mode=\"static\"/>\n",out);
@@ -255,7 +272,7 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 		
 		
 		fprintf(out,
-			"      <node id=\"n%d\" label=\"", t->id);
+			"      <node id=\"n%zu\" label=\"", t->id);
 		while(t->name[j]!=0)
 			{
 			switch(t->name[j])
@@ -280,7 +297,7 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 			{
 			TargetPtr c = t->children[j];
 			fprintf(out,
-				"      <edge id=\"E%d\" type=\"directed\" source=\"n%d\" target=\"n%d\"/>\n",
+				"      <edge id=\"E%zu\" type=\"directed\" source=\"n%zu\" target=\"n%zu\"/>\n",
 				++k,c->id , t->id);
 			}
 		}
@@ -290,12 +307,17 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 	fflush(out);
 	}
 
+/** print usage */
 static void usage(FILE* out)
 	{
+	fprintf(out,"Compilation:\n\t%s %s\n",__DATE__,__TIME__);
+	fputs("Author:\n\tPierre Lindenbaum PhD @yokofakun\n",out);
+	fputs("WWW:\n\thttps://github.com/lindenb/makefile2graph\n",out);
+	fputs("Usage:\n\tmake -Bnd | make2graph\n",out);
 	fputs(
 		"Options:\n"
-		" -h help (this screen)\n",out);
-	fputs(" -x XML output (gexf)\n",out);
+		"\t-h help (this screen)\n",out);
+	fputs("\t-x XML output (gexf)\n",out);
 	fputs("\n",out);
 	}
 
