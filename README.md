@@ -1,7 +1,9 @@
 makefile2graph
 ==============
 
-Creates a graph of dependencies from GNU-Make;  Output is a graphiz-dot file or a Gexf-XML file.
+Creates a graph of dependencies from GNU-Make ( http://www.gnu.org/software/make/manual/make.html )
+
+Output is a graphviz-dot file ( http://www.graphviz.org/ ) or a Gexf-XML file ( https://gephi.github.io/ ).
 
 sub-makefiles are not supported.
 
@@ -202,6 +204,14 @@ $ make -Bnd |make2graph -x
 </gexf>
 ```
 
+## Misc
+
+<blockquote class="twitter-tweet" lang="en"><p><a href="https://twitter.com/yokofakun">@yokofakun</a> Using your <a href="https://t.co/Z1xg8dhW2r">https://t.co/Z1xg8dhW2r</a>, and Graphviz 2.36 for OS X. Large graph. How can I scale it better? <a href="http://t.co/d6ZQX2MnqH">pic.twitter.com/d6ZQX2MnqH</a></p>&mdash; Lex Nederbragt (@lexnederbragt) <a href="https://twitter.com/lexnederbragt/status/502165603076288512">August 20, 2014</a></blockquote>
+<script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+>
+> try the gexf+ #gephi output or another grafviz algo like neato
+> 
 
 
 
