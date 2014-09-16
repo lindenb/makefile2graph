@@ -7,6 +7,9 @@ Output is a graphviz-dot file ( http://www.graphviz.org/ ) or a Gexf-XML file ( 
 
 sub-makefiles are not supported.
 
+## History
+
+* 2014-09-06 fixed new format for GNU make v4.0
 
 ## Screenshot
 

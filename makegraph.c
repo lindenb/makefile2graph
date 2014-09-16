@@ -22,6 +22,10 @@
 
    contact: Pierre Lindenbaum PhD @yokofakun
 
+History:
+   * 2014 first commit
+   * Sept 2014: fixed new format for GNU-Make v4. ( https://github.com/lindenb/makefile2graph/issues/1 )
+
 */
 
 #include <stdio.h>
@@ -97,12 +101,15 @@ static int startsWith(const char* str,const char* pre)
    	return lenstr < lenpre ? 0 : strncmp(pre, str, lenpre) == 0;
 	}
 
-/** extract filename between '`' and "'" */
+/** extract filename between '`' and "'" 
+ * Make v4.0 changed this: the first separator is now "'"
+ */
 static char* targetName(const char* line)
 	{
 	char* p;
 	char* b=strchr(line,'`');
-      	char* e=strchr(line,'\'');
+	if(b==NULL) b=strchr(line,'\'');//GNU make 4.0
+      	char* e=( b==NULL ? NULL : strchr(b+1,'\'') );
       	if(b==NULL  || e==NULL || b>e)
       		{
       		fprintf(stderr,"Cannot get target name in \"%s\".\n",line);
@@ -260,7 +267,7 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 	fputs("<gexf xmlns=\"http://www.gexf.net/1.2draft\" version=\"1.2\">\n",out);
 	fputs("  <meta>\n",out);
 	fputs("    <creator>https://github.com/lindenb/makefile2graph</creator>\n",out);
-	fputs("    <description>Creates a graph from a Makefie</description>\n",out);
+	fputs("    <description>Creates a graph from a Makefile</description>\n",out);
 	fputs("  </meta>\n",out);
 	fputs("  <graph mode=\"static\" defaultedgetype=\"directed\">\n",out);
 	fputs("    <attributes class=\"node\" mode=\"static\"/>\n",out);
