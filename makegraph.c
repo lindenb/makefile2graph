@@ -25,6 +25,7 @@
 History:
    * 2014 first commit
    * Sept 2014: fixed new format for GNU-Make v4. ( https://github.com/lindenb/makefile2graph/issues/1 )
+   * Sept 2014: added long_opt , options basename and suffix
 
 */
 
@@ -34,6 +35,7 @@ History:
 #include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
+#include <getopt.h>
 
 #define OUT_OF_MEMORY do { fprintf(stderr,"%s: %d : OUT_OF_MEMORY.\n",__FILE__,__LINE__); exit(EXIT_FAILURE);} while(0)
 
@@ -63,6 +65,10 @@ typedef struct make2graph_t
 	TargetPtr root;
 	/** target id-generator */
 	size_t id_generator;
+	/** flag print only basename */
+	int print_basename_only;
+	/** flag print only extension */
+	int print_suffix_only;
 	}Graph,*GraphPtr;
 
 
@@ -119,7 +125,24 @@ static char* targetName(const char* line)
 	if(p==NULL) OUT_OF_MEMORY;
 	return p;
 	}
-	
+
+/** get a label for this target name */
+static char* targetLabel(GraphPtr g,const char* s)
+	{
+	char* p=(char*)s;
+	if( g->print_basename_only )
+		{
+		char* slash=strrchr(p,'/');
+		if(slash!=NULL) p=slash+1;
+		}
+	if( g->print_suffix_only )
+		{
+		char* slash=strrchr(p,'.');
+		if(slash!=NULL) p=slash+1;
+		}
+	return p;
+	}
+
 /** read line character by character */
 static char* readline(FILE* in)
 	{
@@ -240,7 +263,7 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 		fprintf(out,
 			"n%zu[label=\"%s\", color=\"%s\"];\n",
 			t->id,
-			t->name,
+			targetLabel(g,t->name),
 			(t->must_remake?"red":"green")
 			);
 
@@ -276,11 +299,11 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 		{
 		j=0UL;
 		TargetPtr t= g->targets[i];
-		
+		const char* label=targetLabel(g,t->name);
 		
 		fprintf(out,
 			"      <node id=\"n%zu\" label=\"", t->id);
-		while(t->name[j]!=0)
+		while(label[j]!=0)
 			{
 			switch(t->name[j])
 				{
@@ -289,7 +312,7 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 				case '\"': fputs("&apos;",out);break;
 				case '\'': fputs("&quot;",out);break;
 				case '&': fputs("&amp;",out);break;
-				default: fputc(t->name[j],out);break;
+				default: fputc(label[j],out);break;
 				}
 			++j;
 			}
@@ -323,40 +346,62 @@ static void usage(FILE* out)
 	fputs("Usage:\n\tmake -Bnd | make2graph\n",out);
 	fputs(
 		"Options:\n"
-		"\t-h help (this screen)\n",out);
-	fputs("\t-x XML output (gexf)\n",out);
+		"\t-h|--help help (this screen)\n",out);
+	fputs("\t-x|--xml|--gexf XML output (gexf)\n",out);
+	fputs("\t-b|--basename only print file basename.\n",out);
+	fputs("\t-s|--suffix only print file extension.\n",out);
 	fputs("\n",out);
 	}
 
 int main(int argc,char** argv)
 	{
 	int gexf_output=0;
-	int c;
+	int print_basename_only=0;
+	int print_suffix_only=0;
 	GraphPtr app=NULL;
-
-	while ((c = getopt (argc, argv, "xh")) != -1)
-	 {
-         switch (c)
-           	{
-           	case 'h': usage(stderr);return EXIT_SUCCESS;
-           	case 'x': gexf_output=1;break;
-		case '?':
-               		fprintf (stderr, "Unknown option `-%c'.\n", optopt);
-               		return EXIT_FAILURE;
-   	        default:
-   	        	fprintf (stderr, "Bad input.\n");
-               		return EXIT_FAILURE;
+	for(;;)
+		{
+		static struct option long_options[] =
+		     {
+			{"xml",    no_argument ,0, 'x'},
+			{"gexf",    no_argument ,0, 'x'},
+			{"help",   no_argument, 0, 'h'},
+			{"basename",   no_argument, 0, 'b'},
+			{"suffix",   no_argument, 0, 's'},
+		       {0, 0, 0, 0}
+		     };
+		int option_index = 0;
+		int c = getopt_long (argc, argv, "xhbs",
+		                    long_options, &option_index);
+		if (c == -1) break;
+		switch (c)
+		   	{
+		   	case 'h': usage(stdout); return EXIT_SUCCESS;
+		   	case 'x': gexf_output=1; break;
+			case 'b': print_basename_only=1; break;
+			case 's': print_suffix_only=1; break;
+			case '?':
+		       		fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+		       		return EXIT_FAILURE;
+	   	        default:
+	   	        	fprintf (stderr, "Bad input.\n");
+		       		return EXIT_FAILURE;
+			}
+		  
 		}
-	  }
 	
 	
 	app=(GraphPtr)calloc(1,sizeof(Graph));
+	
 	if(app==NULL)
 		{
 		fputs("OUT OF MEMORY\n",stderr);
 		exit(EXIT_FAILURE);
 		}
 	
+	app-> print_basename_only =  print_basename_only ;
+	app-> print_suffix_only =  print_suffix_only ;
+
 	app->root=GraphGetTarget(app,"<ROOT>");
 	if(optind==argc)
 		{

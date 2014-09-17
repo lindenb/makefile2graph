@@ -9,7 +9,8 @@ sub-makefiles are not supported.
 
 ## History
 
-* 2014-09-06 fixed new format for GNU make v4.0
+* 2014-09-17 added long_opt , options basename and suffix
+* 2014-09-16 fixed new format for GNU make v4.0
 
 ## Screenshot
 
@@ -23,8 +24,10 @@ make
 
 ## Options
 
-* -h help (this screen)
-* -x XML output (gexf)
+* -h|--help help (this screen)
+* -x|--xml|--gexf XML output (gexf)
+* -s|--suffix only print file extension
+* -b|--basename  only print file basename
 
 ## Usage
 
