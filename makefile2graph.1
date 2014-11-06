@@ -1,0 +1,20 @@
+.TH makefile2graph 1 "2014-11-06" "lindenb/makefile2graph" "User Commands"
+.SH NAME
+makefile2graph \- Creates a graph of dependencies from GNU-Make
+.SH SYNOPSIS
+makefile2graph
+.br
+makefile2graph -B
+.SH DESCRIPTION
+Creates a graph of dependencies from GNU-Make; Output is a graphiz-dot file. sub-makefiles are not supported.
+.SH OPTIONS
+The options of makefile2graph are the same as make(1).
+.TP
+\fB\-B\fR, \fB\-\-always\-make\fR
+Show the graph as though all targets would be remade from scratch.
+.SH SEE ALSO
+make2graph(1), make(1), dot(1)
+.SH AUTHOR
+Shaun jackmnan (@sjackman) wrote this small script.
+.br
+Pierre Lindenbaum (@yokofakun) wrote make2graph.
