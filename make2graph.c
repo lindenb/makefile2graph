@@ -205,12 +205,37 @@ static TargetPtr GraphGetTarget(GraphPtr graph,const char* name)
 static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
 	{
 	char* line=NULL;
-
+	char* makefile_name=NULL;
 	while((line=readline(in))!=NULL)
 		{
 		 if(startsWith(line,"Considering target file"))
 		        {
 		        char* tName=targetName(line);
+		        if(graph->hide_root && 
+		           makefile_name!=NULL &&
+		           strcmp(tName,makefile_name)==0)
+		        	{
+		        	free(tName);
+		        	free(line);
+		        	//skip lines
+		        	while((line=readline(in))!=NULL)
+		        		{
+		        		if(startsWith(line,"Finished prerequisites of target file "))
+						{
+						tName=targetName(line);
+						free(line);
+						if(strcmp(tName,makefile_name)==0)
+							{
+							free(tName);
+							break;
+							}
+						free(tName);
+						continue;
+						}
+					free(line);
+					}
+		        	continue;
+		        	} 
 
 		        TargetPtr child=GraphGetTarget(graph,tName);
 
@@ -233,20 +258,26 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
 			     free(tName);
 			     }
 		    else if(startsWith(line,"Finished prerequisites of target file "))
-		        {
-		        char* tName=targetName(line);
-		        if(strcmp(tName,root->name)!=0)
+			{
+			char* tName=targetName(line);
+			if(strcmp(tName,root->name)!=0)
 				 {
 				 fprintf(stderr,"expected %s got %s\n", root->name , line);
 				 exit(EXIT_FAILURE);
 				 }
 			free(tName);
-		        free(line);
-		        break;
-		        }
+			free(line);
+			break;
+			}
+		    else if(startsWith(line,"Reading makefile "))
+			{
+			free(makefile_name);
+			makefile_name=targetName(line);
+			}
 		       
 		free(line);
 		}
+	free(makefile_name);
 	}
 
 /** export a graphiz dot */
@@ -263,18 +294,28 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 		TargetPtr t= g->targets[i];
 		if( g->hide_root && t==g->root ) continue;
 		
-		fprintf(out,
-			"n%zu[label=\"%s\", color=\"%s\"];\n",
-			t->id,
-			targetLabel(g,t->name),
-			(t->must_remake?"red":"green")
-			);
+		if(t==g->root)
+			{
+			fprintf(out,
+				"n%zu[shape=point, label=\"\"];\n",
+				t->id
+				);
+			}
+		else
+			{
+			fprintf(out,
+				"n%zu[label=\"%s\", color=\"%s\"];\n",
+				t->id,
+				targetLabel(g,t->name),
+				(t->must_remake?"red":"green")
+				);
+			}
 
 		}
 	for(i=0; i< g->target_count; ++i)
 		{
 		TargetPtr t= g->targets[i];
-		if( g->hide_root && t==g->root ) continue;
+		if( g->hide_root && t==g->root) continue;
 		
 		for(j=0; j< t->n_children; ++j)
 			{
