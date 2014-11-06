@@ -9,6 +9,7 @@ sub-makefiles are not supported.
 
 ## History
 
+* 2014-10-06 added --root option
 * 2014-09-17 added long_opt , options basename and suffix
 * 2014-09-16 fixed new format for GNU make v4.0
 
@@ -28,6 +29,7 @@ make
 * -x|--xml|--gexf XML output (gexf)
 * -s|--suffix only print file extension
 * -b|--basename  only print file basename
+* -r|--root  hide root node
 
 ## Usage
 
@@ -36,10 +38,14 @@ make -Bnd | make2graph > output.dot
 ```
 
 ```
+make -Bnd | make2graph | dot -Tpng -o out.png
+```
+
+```
 make -Bnd | make2graph -x > output.xml
 ```
 
-## Example
+## Examples
 
 ### Tabix 0.2.5 - DOT
 

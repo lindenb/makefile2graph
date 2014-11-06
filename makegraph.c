@@ -26,6 +26,7 @@ History:
    * 2014 first commit
    * Sept 2014: fixed new format for GNU-Make v4. ( https://github.com/lindenb/makefile2graph/issues/1 )
    * Sept 2014: added long_opt , options basename and suffix
+   * Nov  2014: added option to hide ROOT node
 
 */
 
@@ -69,6 +70,8 @@ typedef struct make2graph_t
 	int print_basename_only;
 	/** flag print only extension */
 	int print_suffix_only;
+	/** hide <root> node https://github.com/lindenb/makefile2graph/issues/3 */
+	int hide_root;
 	}Graph,*GraphPtr;
 
 
@@ -258,7 +261,7 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 		{
 
 		TargetPtr t= g->targets[i];
-		
+		if( g->hide_root && t==g->root ) continue;
 		
 		fprintf(out,
 			"n%zu[label=\"%s\", color=\"%s\"];\n",
@@ -271,6 +274,8 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 	for(i=0; i< g->target_count; ++i)
 		{
 		TargetPtr t= g->targets[i];
+		if( g->hide_root && t==g->root ) continue;
+		
 		for(j=0; j< t->n_children; ++j)
 			{
 			TargetPtr c = t->children[j];
@@ -300,6 +305,7 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 		j=0UL;
 		TargetPtr t= g->targets[i];
 		const char* label=targetLabel(g,t->name);
+		if( g->hide_root && t==g->root ) continue;
 		
 		fprintf(out,
 			"      <node id=\"n%zu\" label=\"", t->id);
@@ -323,6 +329,8 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 	for(i=0; i< g->target_count; ++i)
 		{
 		TargetPtr t= g->targets[i];
+		if( g->hide_root && t==g->root ) continue;
+		
 		for(j=0; j< t->n_children; ++j)
 			{
 			TargetPtr c = t->children[j];
@@ -350,6 +358,7 @@ static void usage(FILE* out)
 	fputs("\t-x|--xml|--gexf XML output (gexf)\n",out);
 	fputs("\t-b|--basename only print file basename.\n",out);
 	fputs("\t-s|--suffix only print file extension.\n",out);
+	fputs("\t-r|--root (hide <ROOT> node).\n",out);
 	fputs("\n",out);
 	}
 
@@ -358,6 +367,7 @@ int main(int argc,char** argv)
 	int gexf_output=0;
 	int print_basename_only=0;
 	int print_suffix_only=0;
+	int hide_root=0;
 	GraphPtr app=NULL;
 	for(;;)
 		{
@@ -368,10 +378,11 @@ int main(int argc,char** argv)
 			{"help",   no_argument, 0, 'h'},
 			{"basename",   no_argument, 0, 'b'},
 			{"suffix",   no_argument, 0, 's'},
+			{"root",   no_argument, 0, 'r'},
 		       {0, 0, 0, 0}
 		     };
 		int option_index = 0;
-		int c = getopt_long (argc, argv, "xhbs",
+		int c = getopt_long (argc, argv, "xhbsr",
 		                    long_options, &option_index);
 		if (c == -1) break;
 		switch (c)
@@ -380,6 +391,7 @@ int main(int argc,char** argv)
 		   	case 'x': gexf_output=1; break;
 			case 'b': print_basename_only=1; break;
 			case 's': print_suffix_only=1; break;
+			case 'r': hide_root=1; break;
 			case '?':
 		       		fprintf (stderr, "Unknown option `-%c'.\n", optopt);
 		       		return EXIT_FAILURE;
@@ -401,6 +413,7 @@ int main(int argc,char** argv)
 	
 	app-> print_basename_only =  print_basename_only ;
 	app-> print_suffix_only =  print_suffix_only ;
+	app-> hide_root = hide_root;
 
 	app->root=GraphGetTarget(app,"<ROOT>");
 	if(optind==argc)

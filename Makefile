@@ -8,7 +8,8 @@ make2graph: makegraph.c
 
 test: make2graph
 	$(MAKE) -Bnd $< | ./$< | dot && \
-	$(MAKE) -Bnd $< | ./$< -x
+	$(MAKE) -Bnd $< | ./$< -x && \
+	$(MAKE) -Bnd $< | ./$< --root
 
 clean: 
 	rm -f make2graph
