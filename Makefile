@@ -7,6 +7,7 @@ mandir = $(sharedir)/man
 man1dir = $(mandir)/man1
 
 bin_PROGRAMS = make2graph
+bin_SCRIPTS = makefile2graph
 pkgdoc_DATA = LICENSE README.md screenshot.png
 man1_MANS = make2graph.1
 
@@ -22,7 +23,7 @@ clean:
 
 install:
 	install -d $(DESTDIR)$(bindir) $(DESTDIR)$(pkgdocdir) $(DESTDIR)$(man1dir)
-	install $(bin_PROGRAMS) $(DESTDIR)$(bindir)
+	install $(bin_PROGRAMS) $(bin_SCRIPTS) $(DESTDIR)$(bindir)
 	install $(pkgdoc_DATA) $(DESTDIR)$(pkgdocdir)
 	install $(man1_MANS) $(DESTDIR)$(man1dir)
 
@@ -30,3 +31,5 @@ test: all
 	$(MAKE) -Bnd | ./make2graph | dot
 	$(MAKE) -Bnd | ./make2graph -x
 	$(MAKE) -Bnd | ./make2graph --root
+	./makefile2graph
+	./makefile2graph -B
