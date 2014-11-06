@@ -1,16 +1,32 @@
-CC=gcc
-CFLAGS=-O3 -Wall
-.PHONY: all clean test
-all: make2graph
+prefix = /usr/local
+bindir = $(prefix)/bin
+sharedir = $(prefix)/share
+docdir = $(sharedir)/doc
+pkgdocdir = $(sharedir)/makefile2graph
+mandir = $(sharedir)/man
+man1dir = $(mandir)/man1
 
-make2graph: makegraph.c
-	$(CC) -o $@ $(CFLAGS) $<
+bin_PROGRAMS = make2graph
+pkgdoc_DATA = LICENSE README.md screenshot.png
+man1_MANS = make2graph.1
 
-test: make2graph
-	$(MAKE) -Bnd $< | ./$< | dot && \
-	$(MAKE) -Bnd $< | ./$< -x && \
-	$(MAKE) -Bnd $< | ./$< --root
+CFLAGS ?= -O3 -Wall
 
-clean: 
-	rm -f make2graph
+.PHONY: all clean install test
+.DELETE_ON_ERROR:
 
+all: $(bin_PROGRAMS)
+
+clean:
+	rm -f $(bin_PROGRAMS)
+
+install:
+	install -d $(DESTDIR)$(bindir) $(DESTDIR)$(pkgdocdir) $(DESTDIR)$(man1dir)
+	install $(bin_PROGRAMS) $(DESTDIR)$(bindir)
+	install $(pkgdoc_DATA) $(DESTDIR)$(pkgdocdir)
+	install $(man1_MANS) $(DESTDIR)$(man1dir)
+
+test: all
+	$(MAKE) -Bnd | ./make2graph | dot
+	$(MAKE) -Bnd | ./make2graph -x
+	$(MAKE) -Bnd | ./make2graph --root
