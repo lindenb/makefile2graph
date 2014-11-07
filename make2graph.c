@@ -38,6 +38,9 @@ History:
 #include <errno.h>
 #include <getopt.h>
 
+/* version */
+#define M2G_VERSION "1.3"
+
 #define OUT_OF_MEMORY do { fprintf(stderr,"%s: %d : OUT_OF_MEMORY.\n",__FILE__,__LINE__); exit(EXIT_FAILURE);} while(0)
 
 /** a Target */
@@ -70,8 +73,8 @@ typedef struct make2graph_t
 	int print_basename_only;
 	/** flag print only extension */
 	int print_suffix_only;
-	/** hide <root> node https://github.com/lindenb/makefile2graph/issues/3 */
-	int hide_root;
+	/** show <root> node https://github.com/lindenb/makefile2graph/issues/3 */
+	int show_root;
 	}Graph,*GraphPtr;
 
 
@@ -211,7 +214,7 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
 		 if(startsWith(line,"Considering target file"))
 		        {
 		        char* tName=targetName(line);
-		        if(graph->hide_root && 
+		        if(!graph->show_root && 
 		           makefile_name!=NULL &&
 		           strcmp(tName,makefile_name)==0)
 		        	{
@@ -292,7 +295,7 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 		{
 
 		TargetPtr t= g->targets[i];
-		if( g->hide_root && t==g->root ) continue;
+		if( !g->show_root && t==g->root ) continue;
 		
 		if(t==g->root)
 			{
@@ -315,7 +318,7 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 	for(i=0; i< g->target_count; ++i)
 		{
 		TargetPtr t= g->targets[i];
-		if( g->hide_root && t==g->root) continue;
+		if( !g->show_root && t==g->root) continue;
 		
 		for(j=0; j< t->n_children; ++j)
 			{
@@ -335,7 +338,7 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 	fputs("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",out);
 	fputs("<gexf xmlns=\"http://www.gexf.net/1.2draft\" version=\"1.2\">\n",out);
 	fputs("  <meta>\n",out);
-	fputs("    <creator>https://github.com/lindenb/makefile2graph</creator>\n",out);
+	fputs("    <creator>https://github.com/lindenb/makefile2graph version:" M2G_VERSION "</creator>\n",out);
 	fputs("    <description>Creates a graph from a Makefile</description>\n",out);
 	fputs("  </meta>\n",out);
 	fputs("  <graph mode=\"static\" defaultedgetype=\"directed\">\n",out);
@@ -346,7 +349,7 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 		j=0UL;
 		TargetPtr t= g->targets[i];
 		const char* label=targetLabel(g,t->name);
-		if( g->hide_root && t==g->root ) continue;
+		if( !g->show_root && t==g->root ) continue;
 		
 		fprintf(out,
 			"      <node id=\"n%zu\" label=\"", t->id);
@@ -370,7 +373,7 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 	for(i=0; i< g->target_count; ++i)
 		{
 		TargetPtr t= g->targets[i];
-		if( g->hide_root && t==g->root ) continue;
+		if( !g->show_root && t==g->root ) continue;
 		
 		for(j=0; j< t->n_children; ++j)
 			{
@@ -390,6 +393,7 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 static void usage(FILE* out)
 	{
 	fprintf(out,"Compilation:\n\t%s %s\n",__DATE__,__TIME__);
+	fprintf(out,"Version:\n\t%s\n",M2G_VERSION);
 	fputs("Author:\n\tPierre Lindenbaum PhD @yokofakun\n",out);
 	fputs("WWW:\n\thttps://github.com/lindenb/makefile2graph\n",out);
 	fputs("Usage:\n\tmake -Bnd | make2graph\n",out);
@@ -399,7 +403,8 @@ static void usage(FILE* out)
 	fputs("\t-x|--xml|--gexf XML output (gexf)\n",out);
 	fputs("\t-b|--basename only print file basename.\n",out);
 	fputs("\t-s|--suffix only print file extension.\n",out);
-	fputs("\t-r|--root (hide <ROOT> node).\n",out);
+	fputs("\t-r|--root show <ROOT> node.\n",out);
+	fputs("\t-v|--version print version.\n",out);
 	fputs("\n",out);
 	}
 
@@ -408,7 +413,7 @@ int main(int argc,char** argv)
 	int gexf_output=0;
 	int print_basename_only=0;
 	int print_suffix_only=0;
-	int hide_root=0;
+	int show_root=0;
 	GraphPtr app=NULL;
 	for(;;)
 		{
@@ -420,19 +425,21 @@ int main(int argc,char** argv)
 			{"basename",   no_argument, 0, 'b'},
 			{"suffix",   no_argument, 0, 's'},
 			{"root",   no_argument, 0, 'r'},
+			{"version",   no_argument, 0, 'v'},
 		       {0, 0, 0, 0}
 		     };
 		int option_index = 0;
-		int c = getopt_long (argc, argv, "xhbsr",
+		int c = getopt_long (argc, argv, "xhbsrv",
 		                    long_options, &option_index);
 		if (c == -1) break;
 		switch (c)
 		   	{
+			case 'v': printf("%s\n",M2G_VERSION); return EXIT_SUCCESS;
 		   	case 'h': usage(stdout); return EXIT_SUCCESS;
 		   	case 'x': gexf_output=1; break;
 			case 'b': print_basename_only=1; break;
 			case 's': print_suffix_only=1; break;
-			case 'r': hide_root=1; break;
+			case 'r': show_root=1; break;
 			case '?':
 		       		fprintf (stderr, "Unknown option `-%c'.\n", optopt);
 		       		return EXIT_FAILURE;
@@ -454,7 +461,7 @@ int main(int argc,char** argv)
 	
 	app-> print_basename_only =  print_basename_only ;
 	app-> print_suffix_only =  print_suffix_only ;
-	app-> hide_root = hide_root;
+	app-> show_root = show_root;
 
 	app->root=GraphGetTarget(app,"<ROOT>");
 	if(optind==argc)

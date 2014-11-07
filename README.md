@@ -9,6 +9,7 @@ sub-makefiles are not supported.
 
 ## History
 
+* 2014-10-07 print version
 * 2014-10-06 added --root option
 * 2014-09-17 added long_opt , options basename and suffix
 * 2014-09-16 fixed new format for GNU make v4.0
@@ -29,7 +30,8 @@ make
 * -x|--xml|--gexf XML output (gexf)
 * -s|--suffix only print file extension
 * -b|--basename  only print file basename
-* -r|--root  hide root node
+* -r|--root  show root node
+* -v|--version print version
 
 ## Usage
 
