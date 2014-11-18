@@ -31,5 +31,5 @@ test: all
 	$(MAKE) -Bnd | ./make2graph | dot
 	$(MAKE) -Bnd | ./make2graph -x
 	$(MAKE) -Bnd | ./make2graph --root
-	./makefile2graph
-	./makefile2graph -B
+	PATH=.:$(PATH) ./makefile2graph
+	PATH=.:$(PATH) ./makefile2graph -B
