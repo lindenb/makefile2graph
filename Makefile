@@ -11,7 +11,7 @@ bin_SCRIPTS = makefile2graph
 pkgdoc_DATA = LICENSE README.md screenshot.png
 man1_MANS = make2graph.1
 
-CFLAGS ?= -O3 -Wall
+CFLAGS ?= -Wall -Wextra -std=gnu99 -O3 -Wall -D_GNU_SOURCE
 
 .PHONY: all clean install test
 .DELETE_ON_ERROR:
