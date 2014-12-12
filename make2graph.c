@@ -52,6 +52,8 @@ typedef struct target_t
 	size_t id;
 	/* filename */
 	char* name;
+	/* parent */
+	struct target_t *parent;
 	/* associated children, sorted by name */
 	struct target_t** children;
 	/* number of children */
@@ -81,75 +83,72 @@ typedef struct make2graph_t
 
 
 /** compare target by name */
-static int TargetCmp(const void * a, const void * b)
-	{
+static int TargetCmp(const void * a, const void * b){
 	return strcmp((*(TargetPtr*)a)->name,(*(TargetPtr*)b)->name);
 	}
 
 /** creates a new target */
-static TargetPtr TargetNew(GraphPtr graph,const char* name)
+static TargetPtr TargetNew(GraphPtr graph, const char* name)
 	{
 	TargetPtr target=(TargetPtr)calloc(1,sizeof(Target));
 	if(target==NULL) OUT_OF_MEMORY;
 	target->id=(++graph->id_generator);
+	target->parent = NULL;
 	target->name=strdup(name);
-	if(target->name==NULL) OUT_OF_MEMORY;
+	if(target->name==NULL) OUT_OF_MEMORY;      
 	return target;
 	}
 
 /** add a children to the specified target */
-static void TargetAddChildren(TargetPtr root, TargetPtr c)
-	{
+static void TargetAddChildren(TargetPtr root, TargetPtr c){
 	TargetPtr* t=(TargetPtr*)bsearch((const void*)&c, (void*)root->children, root->n_children, sizeof(TargetPtr),TargetCmp);
         if(t!=0) return;
 	root->children=realloc(root->children,sizeof(TargetPtr)*(root->n_children+1));
 	if(root->children==NULL)  OUT_OF_MEMORY;
 	root->children[root->n_children++]=c;
 	qsort(root->children, root->n_children ,sizeof(TargetPtr) , TargetCmp);
-	}
+	c->parent = root;
+}
 
 /** does string starts with substring */
-static int startsWith(const char* str,const char* pre)
-	{
-    	size_t lenpre = strlen(pre), lenstr = strlen(str);
+static int startsWith(const char* str,const char* pre){
+    size_t lenpre = strlen(pre), lenstr = strlen(str);
    	return lenstr < lenpre ? 0 : strncmp(pre, str, lenpre) == 0;
-	}
+}
 
 /** extract filename between '`' and "'" 
  * Make v4.0 changed this: the first separator is now "'"
  */
-static char* targetName(const char* line)
-	{
+static char* targetName(const char* line){
 	char* p;
 	char* b=strchr(line,'`');
-	if(b==NULL) b=strchr(line,'\'');//GNU make 4.0
-      	char* e=( b==NULL ? NULL : strchr(b+1,'\'') );
-      	if(b==NULL  || e==NULL || b>e)
-      		{
-      		fprintf(stderr,"Cannot get target name in \"%s\".\n",line);
-      		exit(EXIT_FAILURE);
-      		}
-        p= strndup(b+1,(e-b)-1);
-	if(p==NULL) OUT_OF_MEMORY;
-	return p;
+	if(b==NULL)
+		b=strchr(line,'\'');//GNU make 4.0
+
+	char* e=( b==NULL ? NULL : strchr(b+1,'\'') );
+	if(b==NULL  || e==NULL || b>e){
+		fprintf(stderr,"Cannot get target name in \"%s\".\n",line);
+		exit(EXIT_FAILURE);
 	}
+	p= strndup(b+1,(e-b)-1);
+	if(p==NULL)
+		OUT_OF_MEMORY;
+	return p;
+}
 
 /** get a label for this target name */
-static char* targetLabel(GraphPtr g,const char* s)
-	{
+static char* targetLabel(GraphPtr g,const char* s){
 	char* p=(char*)s;
-	if( g->print_basename_only )
-		{
+	if( g->print_basename_only ){
 		char* slash=strrchr(p,'/');
 		if(slash!=NULL) p=slash+1;
-		}
-	if( g->print_suffix_only )
-		{
+	}
+	if( g->print_suffix_only ){
 		char* slash=strrchr(p,'.');
 		if(slash!=NULL) p=slash+1;
-		}
-	return p;
 	}
+	return p;
+}
 
 /** read line character by character */
 static char* readline(FILE* in)
@@ -174,121 +173,76 @@ static char* readline(FILE* in)
 	}
  
  /** get target, create it it doesn't exist */
-static TargetPtr GraphGetTarget(GraphPtr graph,const char* name)
-        {
-        TargetPtr t;
+static TargetPtr GraphGetTarget(GraphPtr graph,const char* name){
+	TargetPtr t;
 	Target key;
 	TargetPtr pkey=&key;
 	key.name=(char*)name;
 	TargetPtr* prev=(TargetPtr*)bsearch(
-		(const void*) &pkey,
-		(void*)graph->targets,
-		graph->target_count,
-		sizeof(TargetPtr),
-		TargetCmp
+			(const void*) &pkey,
+			(void*)graph->targets,
+			graph->target_count,
+			sizeof(TargetPtr),
+			TargetCmp
 		);
 	
-        if(prev!=0)
-		{
+	if(prev!=0){
 		return *prev;
-	    	}
-
-        t=TargetNew(graph,name);
+	}
+	
+	t=TargetNew(graph,name);
 	graph->targets = (TargetPtr*)realloc(
-		(void*)graph->targets,
-		sizeof(TargetPtr)*(1+graph->target_count)
+			(void*)graph->targets,
+			sizeof(TargetPtr)*(1+graph->target_count)
 		);
-	if(graph->targets==NULL) OUT_OF_MEMORY;
+	if(graph->targets==NULL)
+		OUT_OF_MEMORY;
 	graph->targets[ graph->target_count ] = t;
 	graph->target_count++;
 	qsort(graph->targets, graph->target_count ,sizeof(TargetPtr) , TargetCmp);
-
+	
 	return t;
-        }
+}
 
 /** scan the makefile -nd output */
-static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
+static void GraphScan(GraphPtr graph,FILE* in)
 	{
 	// Only parse the true goals of the makefile and not the prerequirments for the makefile itself
 	bool goals = false;
 	char* line=NULL;
-	char* makefile_name=NULL;
-	while((line=readline(in))!=NULL)
-		{
+	TargetPtr current = graph->root;
+
+	while((line=readline(in))!=NULL){
 		 if(startsWith(line,"Updating goal targets")){
 			 goals = true;
 		 }
 		 else if(goals) {
-			 if(startsWith(line,"Considering target file"))
-					{
+			 if( startsWith(line,"Considering target file") ){
 					char* tName=targetName(line);
-					if(!graph->show_root && 
-					   makefile_name!=NULL &&
-					   strcmp(tName,makefile_name)==0)
-						{
-						free(tName);
-						free(line);
-						//skip lines
-						while((line=readline(in))!=NULL)
-							{
-							if(startsWith(line,"Finished prerequisites of target file "))
-							{
-							tName=targetName(line);
-							free(line);
-							if(strcmp(tName,makefile_name)==0)
-								{
-								free(tName);
-								break;
-								}
-							free(tName);
-							continue;
-							}
-						free(line);
-						}
-						continue;
-						} 
-
-					TargetPtr child=GraphGetTarget(graph,tName);
+					TargetPtr child = GraphGetTarget(graph,tName);
 
 					free(tName);
+					fprintf(stderr, "%s -> %s\n", current ? current->name : "ROOT", child->name);
 
-					TargetAddChildren(root,child);
-					GraphScan(graph,child,in);
-
-					}
-				else if(startsWith(line,"Must remake target "))
-					 {
-					 char* tName=targetName(line);
-					 GraphGetTarget(graph,tName)->must_remake=1;
-					 free(tName);
-					 }
-				else if(startsWith(line,"Pruning file "))
-					 {
-					 char* tName=targetName(line);
-					 TargetAddChildren(root,GraphGetTarget(graph,tName));
-					 free(tName);
-					 }
-				else if(startsWith(line,"Finished prerequisites of target file "))
-				{
-				char* tName=targetName(line);
-				if(strcmp(tName,root->name)!=0)
-					 {
-					 fprintf(stderr,"expected %s got %s\n", root->name , line);
-					 exit(EXIT_FAILURE);
-					 }
-				free(tName);
-				free(line);
-				break;
-				}
-				else if(startsWith(line,"Reading makefile "))
-				{
-				free(makefile_name);
-				makefile_name=targetName(line);
-				}
-		 } 
+					TargetAddChildren(current,child);
+					current = child;
+			}
+			else if(startsWith(line,"Must remake target ")){
+				 char* tName=targetName(line);
+				 GraphGetTarget(graph,tName)->must_remake=1;
+				 free(tName);
+			}
+			else if(startsWith(line,"Pruning file ")){
+				 char* tName=targetName(line);
+				 TargetAddChildren(current,GraphGetTarget(graph,tName));
+				 free(tName);
+			}
+			else if(startsWith(line,"Finished prerequisites of target file ")){
+				current = current->parent;
+			}
+		} 
 		free(line);
 		}
-	free(makefile_name);
 	}
 
 /** export a graphiz dot */
@@ -305,8 +259,7 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 		TargetPtr t= g->targets[i];
 		if( !g->show_root && t==g->root ) continue;
 		
-		if(t==g->root)
-			{
+		if(t==g->root){
 			fprintf(out,
 				"n%zu[shape=point, label=\"\"];\n",
 				t->id
@@ -318,7 +271,7 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 				"n%zu[label=\"%s\", color=\"%s\"];\n",
 				t->id,
 				targetLabel(g,t->name),
-				(t->must_remake?"red":"green")
+				(t->parent == g->root ? "blue" : t->must_remake? "red" : "green")
 				);
 			}
 
@@ -470,11 +423,11 @@ int main(int argc,char** argv)
 	app-> print_basename_only =  print_basename_only ;
 	app-> print_suffix_only =  print_suffix_only ;
 	app-> show_root = show_root;
+	app->root = GraphGetTarget(app, "<ROOT>");
 
-	app->root=GraphGetTarget(app,"<ROOT>");
 	if(optind==argc)
 		{
-		GraphScan(app,app->root,stdin);
+		GraphScan(app,stdin);
 		}
 	else if(optind+1==argc)
 		{
@@ -484,7 +437,7 @@ int main(int argc,char** argv)
 			fprintf(stderr,"Cannot open \"%s\" : \"%s\".\n",argv[optind],strerror(errno));
 			return EXIT_FAILURE;
 			}
-		GraphScan(app,app->root,in);
+		GraphScan(app,in);
 		fclose(in);
 		}
 	else
