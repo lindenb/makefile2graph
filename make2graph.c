@@ -32,6 +32,7 @@ History:
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
@@ -42,6 +43,7 @@ History:
 #define M2G_VERSION "1.3"
 
 #define OUT_OF_MEMORY do { fprintf(stderr,"%s: %d : OUT_OF_MEMORY.\n",__FILE__,__LINE__); exit(EXIT_FAILURE);} while(0)
+
 
 /** a Target */
 typedef struct target_t
@@ -207,77 +209,83 @@ static TargetPtr GraphGetTarget(GraphPtr graph,const char* name)
 /** scan the makefile -nd output */
 static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
 	{
+	// Only parse the true goals of the makefile and not the prerequirments for the makefile itself
+	bool goals = false;
 	char* line=NULL;
 	char* makefile_name=NULL;
 	while((line=readline(in))!=NULL)
 		{
-		 if(startsWith(line,"Considering target file"))
-		        {
-		        char* tName=targetName(line);
-		        if(!graph->show_root && 
-		           makefile_name!=NULL &&
-		           strcmp(tName,makefile_name)==0)
-		        	{
-		        	free(tName);
-		        	free(line);
-		        	//skip lines
-		        	while((line=readline(in))!=NULL)
-		        		{
-		        		if(startsWith(line,"Finished prerequisites of target file "))
+		 if(startsWith(line,"Updating goal targets")){
+			 goals = true;
+		 }
+		 else if(goals) {
+			 if(startsWith(line,"Considering target file"))
+					{
+					char* tName=targetName(line);
+					if(!graph->show_root && 
+					   makefile_name!=NULL &&
+					   strcmp(tName,makefile_name)==0)
 						{
-						tName=targetName(line);
-						free(line);
-						if(strcmp(tName,makefile_name)==0)
-							{
-							free(tName);
-							break;
-							}
 						free(tName);
-						continue;
+						free(line);
+						//skip lines
+						while((line=readline(in))!=NULL)
+							{
+							if(startsWith(line,"Finished prerequisites of target file "))
+							{
+							tName=targetName(line);
+							free(line);
+							if(strcmp(tName,makefile_name)==0)
+								{
+								free(tName);
+								break;
+								}
+							free(tName);
+							continue;
+							}
+						free(line);
 						}
-					free(line);
+						continue;
+						} 
+
+					TargetPtr child=GraphGetTarget(graph,tName);
+
+					free(tName);
+
+					TargetAddChildren(root,child);
+					GraphScan(graph,child,in);
+
 					}
-		        	continue;
-		        	} 
-
-		        TargetPtr child=GraphGetTarget(graph,tName);
-
-		        free(tName);
-
-		        TargetAddChildren(root,child);
-		        GraphScan(graph,child,in);
-
-		        }
-		    else if(startsWith(line,"Must remake target "))
-			     {
-			     char* tName=targetName(line);
-			     GraphGetTarget(graph,tName)->must_remake=1;
-			     free(tName);
-			     }
-		    else if(startsWith(line,"Pruning file "))
-			     {
-			     char* tName=targetName(line);
-			     TargetAddChildren(root,GraphGetTarget(graph,tName));
-			     free(tName);
-			     }
-		    else if(startsWith(line,"Finished prerequisites of target file "))
-			{
-			char* tName=targetName(line);
-			if(strcmp(tName,root->name)!=0)
-				 {
-				 fprintf(stderr,"expected %s got %s\n", root->name , line);
-				 exit(EXIT_FAILURE);
-				 }
-			free(tName);
-			free(line);
-			break;
-			}
-		    else if(startsWith(line,"Reading makefile "))
-			{
-			free(makefile_name);
-			makefile_name=targetName(line);
-			}
-		       
+				else if(startsWith(line,"Must remake target "))
+					 {
+					 char* tName=targetName(line);
+					 GraphGetTarget(graph,tName)->must_remake=1;
+					 free(tName);
+					 }
+				else if(startsWith(line,"Pruning file "))
+					 {
+					 char* tName=targetName(line);
+					 TargetAddChildren(root,GraphGetTarget(graph,tName));
+					 free(tName);
+					 }
+				else if(startsWith(line,"Finished prerequisites of target file "))
+				{
+				char* tName=targetName(line);
+				if(strcmp(tName,root->name)!=0)
+					 {
+					 fprintf(stderr,"expected %s got %s\n", root->name , line);
+					 exit(EXIT_FAILURE);
+					 }
+				free(tName);
+				free(line);
+				break;
+				}
+				else if(startsWith(line,"Reading makefile "))
+				{
+				free(makefile_name);
+				makefile_name=targetName(line);
+				}
+		 } 
 		free(line);
 		}
 	free(makefile_name);
