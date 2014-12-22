@@ -419,7 +419,7 @@ static int IsDeepFlag(GraphPtr g,const TargetPtr t,int depth)
 		if( dirty_children==1) return 0;
 		return t->must_remake;
 		}
-	return t->must_remake;
+	return t->must_remake || dirty_children;
 	}
 
 /** print a list of independant deep targets */
