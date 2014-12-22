@@ -3,16 +3,18 @@ makefile2graph
 
 Creates a graph of dependencies from GNU-Make ( http://www.gnu.org/software/make/manual/make.html )
 
-Output is a graphviz-dot file ( http://www.graphviz.org/ ) or a Gexf-XML file ( https://gephi.github.io/ ).
+Output is a graphviz-dot file ( http://www.graphviz.org/ ), a Gexf-XML file ( https://gephi.github.io/ ) or a list of the deepest independent targets that should be make.
 
 sub-makefiles are not supported.
 
 ## History
 
+* 2014-12-22 added 'deep' output. I need this when I'm working on a cluster and I need to know the deepest independent targets that should be make.
 * 2014-10-07 print version
 * 2014-10-06 added --root option
 * 2014-09-17 added long_opt , options basename and suffix
 * 2014-09-16 fixed new format for GNU make v4.0
+
 
 ## Screenshot
 
@@ -28,6 +30,7 @@ make
 
 * -h|--help help (this screen)
 * -x|--xml|--gexf XML output (gexf)
+* -d|--deep print the deepest indepedent targets.
 * -s|--suffix only print file extension
 * -b|--basename  only print file basename
 * -r|--root  show root node
@@ -46,6 +49,8 @@ make -Bnd | make2graph | dot -Tpng -o out.png
 ```
 make -Bnd | make2graph -x > output.xml
 ```
+
+
 
 ## Examples
 
@@ -217,6 +222,72 @@ $ make -Bnd |make2graph -x
   </graph>
 </gexf>
 ```
+
+### Deep output 
+
+deep output was needed when using a cluster:  I needed a list of all deepest independant targets that must be re-built.
+
+For the following Makefile
+
+```make
+NUMS=1 2 3 4 5
+.PHONY:all clean 
+%.c: %.b
+	echo "$<" > $@
+
+
+%.b: %.a
+	echo "$<" > $@
+
+%.a:
+	echo "$@" > $@
+
+all:$(addsuffix .c,${NUMS})
+
+clean:
+	rm -f $(foreach P,a b c,$(addsuffix .${P},${NUMS})) 
+```
+
+make a few targets:
+
+```
+$ make  1.a 2.a 3.b 4.c 
+echo "1.a" > 1.a
+echo "2.a" > 2.a
+echo "3.a" > 3.a
+echo "3.a" > 3.b
+echo "4.a" > 4.a
+echo "4.a" > 4.b
+echo "4.b" > 4.c
+rm 3.a 4.a 4.b
+```
+
+deep output :
+```
+$ make -nd  all  | ./make2graph -d1.b
+2.b
+3.c
+5.a
+```
+
+build other targets
+
+```
+$ make  1.b 3.c
+echo "1.a" > 1.b
+echo "3.b" > 3.c
+```
+
+
+new deep output :
+
+```
+$ make -nd  all  | ./make2graph -d 
+1.c
+2.b
+5.a
+```
+
 
 ## Gallery
 

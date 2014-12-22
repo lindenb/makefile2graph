@@ -27,6 +27,7 @@ History:
    * Sept 2014: fixed new format for GNU-Make v4. ( https://github.com/lindenb/makefile2graph/issues/1 )
    * Sept 2014: added long_opt , options basename and suffix
    * Nov  2014: added option to hide ROOT node
+   * Dec  2014: new output. Print the deepest independant targets 
 
 */
 
@@ -39,9 +40,15 @@ History:
 #include <getopt.h>
 
 /* version */
-#define M2G_VERSION "1.3"
+#define M2G_VERSION "1.4"
 
 #define OUT_OF_MEMORY do { fprintf(stderr,"%s: %d : OUT_OF_MEMORY.\n",__FILE__,__LINE__); exit(EXIT_FAILURE);} while(0)
+
+enum output_type {
+	output_dot,
+	output_gexf,
+	output_deep
+	};
 
 /** a Target */
 typedef struct target_t
@@ -388,6 +395,45 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 	fputs("</gexf>\n",out);
 	fflush(out);
 	}
+	
+/** for deep output , recursively look the targets to check is they're 'deep' */
+static int IsDeepFlag(GraphPtr g,const TargetPtr t,int depth)
+	{
+	int dirty_children=0;
+	size_t j;
+	/* test if children must be remake */
+	for(j=0; j< t->n_children; ++j)
+		{
+		TargetPtr c = t->children[j];
+		/* test if one CHILDREN must be rebuilt */
+		if(IsDeepFlag(g,c,depth+1))
+			{
+			dirty_children=1;
+			break;
+			}
+		}
+	/** depth is 0 */
+	if(depth==0)
+		{
+		/** any dirty children ? */
+		if( dirty_children==1) return 0;
+		return t->must_remake;
+		}
+	return t->must_remake;
+	}
+
+/** print a list of independant deep targets */
+static void DumpGraphAsDeep(GraphPtr g,FILE* out)
+	{
+	size_t i=0;
+	for(i=0; i< g->target_count; ++i)
+		{
+		TargetPtr t= g->targets[i];
+		if(!IsDeepFlag(g,t,0)) continue;
+		fputs(t->name,out);
+		fputc('\n',out);
+		}
+	}
 
 /** print usage */
 static void usage(FILE* out)
@@ -401,6 +447,7 @@ static void usage(FILE* out)
 		"Options:\n"
 		"\t-h|--help help (this screen)\n",out);
 	fputs("\t-x|--xml|--gexf XML output (gexf)\n",out);
+	fputs("\t-d|--deep print the deepest indepedent targets.\n",out);
 	fputs("\t-b|--basename only print file basename.\n",out);
 	fputs("\t-s|--suffix only print file extension.\n",out);
 	fputs("\t-r|--root show <ROOT> node.\n",out);
@@ -410,7 +457,7 @@ static void usage(FILE* out)
 
 int main(int argc,char** argv)
 	{
-	int gexf_output=0;
+	int out_format = output_dot;
 	int print_basename_only=0;
 	int print_suffix_only=0;
 	int show_root=0;
@@ -421,6 +468,7 @@ int main(int argc,char** argv)
 		     {
 			{"xml",    no_argument ,0, 'x'},
 			{"gexf",    no_argument ,0, 'x'},
+			{"deep",    no_argument ,0, 'd'},
 			{"help",   no_argument, 0, 'h'},
 			{"basename",   no_argument, 0, 'b'},
 			{"suffix",   no_argument, 0, 's'},
@@ -429,14 +477,15 @@ int main(int argc,char** argv)
 		       {0, 0, 0, 0}
 		     };
 		int option_index = 0;
-		int c = getopt_long (argc, argv, "xhbsrv",
+		int c = getopt_long (argc, argv, "xhbsrvd",
 		                    long_options, &option_index);
 		if (c == -1) break;
 		switch (c)
 		   	{
 			case 'v': printf("%s\n",M2G_VERSION); return EXIT_SUCCESS;
 		   	case 'h': usage(stdout); return EXIT_SUCCESS;
-		   	case 'x': gexf_output=1; break;
+		   	case 'x': out_format = output_gexf; break;
+		   	case 'd': out_format = output_deep ;break;
 			case 'b': print_basename_only=1; break;
 			case 's': print_suffix_only=1; break;
 			case 'r': show_root=1; break;
@@ -484,13 +533,19 @@ int main(int argc,char** argv)
 		fprintf(stderr,"Illegal number of arguments.\n");
 		return EXIT_FAILURE;
 		}
-	if(gexf_output)
+	switch(out_format)
 		{
-		DumpGraphAsGexf(app,stdout);
-		}
-	else
-		{
-		DumpGraphAsDot(app,stdout);
+		case output_gexf : 
+			DumpGraphAsGexf(app,stdout);
+			break;
+		case output_deep : 
+			DumpGraphAsDeep(app,stdout);
+			break;
+		case output_dot : 
+		default:
+			DumpGraphAsDot(app,stdout);
+			break;
+		
 		}
 	free(app);
 	
