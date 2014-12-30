@@ -134,8 +134,11 @@ static char* targetName(const char* line)
       		fprintf(stderr,"Cannot get target name in \"%s\".\n",line);
       		exit(EXIT_FAILURE);
       		}
-        p= strndup(b+1,(e-b)-1);
+	int len = (e-b)-1;
+	p = malloc(len+1);
 	if(p==NULL) OUT_OF_MEMORY;
+	strncpy(p, b+1, len);
+	p[len] = 0;
 	return p;
 	}
 
