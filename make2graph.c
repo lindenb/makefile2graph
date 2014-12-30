@@ -44,6 +44,24 @@ History:
 
 #define OUT_OF_MEMORY do { fprintf(stderr,"%s: %d : OUT_OF_MEMORY.\n",__FILE__,__LINE__); exit(EXIT_FAILURE);} while(0)
 
+#ifdef __APPLE__
+static char* strndup (const char *s, size_t n)
+{
+  char *result;
+  size_t len = strlen (s);
+
+  if (n < len)
+    len = n;
+
+  result = (char *) malloc (len + 1);
+  if (!result)
+    return 0;
+
+  result[len] = '\0';
+  return (char *) memcpy (result, s, len);
+}
+#endif
+
 enum output_type {
 	output_dot,
 	output_gexf,
@@ -134,11 +152,8 @@ static char* targetName(const char* line)
       		fprintf(stderr,"Cannot get target name in \"%s\".\n",line);
       		exit(EXIT_FAILURE);
       		}
-	int len = (e-b)-1;
-	p = malloc(len+1);
+        p= strndup(b+1,(e-b)-1);
 	if(p==NULL) OUT_OF_MEMORY;
-	strncpy(p, b+1, len);
-	p[len] = 0;
 	return p;
 	}
 
