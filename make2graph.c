@@ -28,6 +28,7 @@ History:
    * Sept 2014: added long_opt , options basename and suffix
    * Nov  2014: added option to hide ROOT node
    * Dec  2014: new output. Print the deepest independant targets 
+   * Desc 2014: MacOS bug, changed options
 
 */
 
@@ -40,12 +41,12 @@ History:
 #include <getopt.h>
 
 /* version */
-#define M2G_VERSION "1.4"
+#define M2G_VERSION "1.5.0"
 
 #define OUT_OF_MEMORY do { fprintf(stderr,"%s: %d : OUT_OF_MEMORY.\n",__FILE__,__LINE__); exit(EXIT_FAILURE);} while(0)
 
-#ifdef __APPLE__
-static char* strndup (const char *s, size_t n)
+/* as https://github.com/lindenb/makefile2graph/issues/9 */
+static char* StrNDup (const char *s, size_t n)
 {
   char *result;
   size_t len = strlen (s);
@@ -60,12 +61,12 @@ static char* strndup (const char *s, size_t n)
   result[len] = '\0';
   return (char *) memcpy (result, s, len);
 }
-#endif
 
 enum output_type {
 	output_dot,
 	output_gexf,
-	output_deep
+	output_deep,
+	output_list
 	};
 
 /** a Target */
@@ -152,7 +153,7 @@ static char* targetName(const char* line)
       		fprintf(stderr,"Cannot get target name in \"%s\".\n",line);
       		exit(EXIT_FAILURE);
       		}
-        p= strndup(b+1,(e-b)-1);
+        p= StrNDup(b+1,(e-b)-1);
 	if(p==NULL) OUT_OF_MEMORY;
 	return p;
 	}
@@ -453,6 +454,19 @@ static void DumpGraphAsDeep(GraphPtr g,FILE* out)
 		}
 	}
 
+/** print a list of targets */
+static void DumpGraphAsList(GraphPtr g,FILE* out)
+	{
+	size_t i=0;
+	for(i=0; i< g->target_count; ++i)
+		{
+		TargetPtr t= g->targets[i];
+		fputs(t->name,out);
+		fputc('\n',out);
+		}
+	}
+
+
 /** print usage */
 static void usage(FILE* out)
 	{
@@ -464,8 +478,11 @@ static void usage(FILE* out)
 	fputs(
 		"Options:\n"
 		"\t-h|--help help (this screen)\n",out);
-	fputs("\t-x|--xml|--gexf XML output (gexf)\n",out);
-	fputs("\t-d|--deep print the deepest indepedent targets.\n",out);
+	fputs("\t-f|--format (format)\n",out);
+	fputs("\t\t(d)ot graphiz dot output format (default).\n",out);
+	fputs("\t\t(x)xml (g)exf XML output (gexf)\n",out);
+	fputs("\t\t(E) print the deepest indepedent targets.\n",out);
+	fputs("\t\t(L)ist all targets.\n",out);
 	fputs("\t-b|--basename only print file basename.\n",out);
 	fputs("\t-s|--suffix only print file extension.\n",out);
 	fputs("\t-r|--root show <ROOT> node.\n",out);
@@ -484,9 +501,7 @@ int main(int argc,char** argv)
 		{
 		static struct option long_options[] =
 		     {
-			{"xml",    no_argument ,0, 'x'},
-			{"gexf",    no_argument ,0, 'x'},
-			{"deep",    no_argument ,0, 'd'},
+		        {"format",  required_argument ,0, 'f'},
 			{"help",   no_argument, 0, 'h'},
 			{"basename",   no_argument, 0, 'b'},
 			{"suffix",   no_argument, 0, 's'},
@@ -495,15 +510,31 @@ int main(int argc,char** argv)
 		       {0, 0, 0, 0}
 		     };
 		int option_index = 0;
-		int c = getopt_long (argc, argv, "xhbsrvd",
+		int c = getopt_long (argc, argv, "hbsrvf:",
 		                    long_options, &option_index);
 		if (c == -1) break;
 		switch (c)
 		   	{
 			case 'v': printf("%s\n",M2G_VERSION); return EXIT_SUCCESS;
+			case 'f':
+				{
+				switch(optarg[0])
+					{
+					case 'x':case 'X': 
+					case 'g':case 'G': out_format = output_gexf; break;
+					case 'd':case 'D': out_format = output_dot; break;
+					case 'e':case 'E': out_format = output_deep; break;
+					case 'l':case 'L': out_format = output_list; break;
+					default:
+						{
+						fprintf(stderr,"Bad value for --format=%s\n",optarg);
+						return EXIT_FAILURE;
+						break;
+						}
+					}
+				break;
+				}
 		   	case 'h': usage(stdout); return EXIT_SUCCESS;
-		   	case 'x': out_format = output_gexf; break;
-		   	case 'd': out_format = output_deep ;break;
 			case 'b': print_basename_only=1; break;
 			case 's': print_suffix_only=1; break;
 			case 'r': show_root=1; break;
@@ -558,6 +589,9 @@ int main(int argc,char** argv)
 			break;
 		case output_deep : 
 			DumpGraphAsDeep(app,stdout);
+			break;
+		case output_list : 
+			DumpGraphAsList(app,stdout);
 			break;
 		case output_dot : 
 		default:

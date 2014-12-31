@@ -9,6 +9,7 @@ sub-makefiles are not supported.
 
 ## History
 
+* 2014-12-31 added option `--format`, removed otpions 'x' and 'd'
 * 2014-12-22 added 'deep' output. I need this when I'm working on a cluster and I need to know the deepest independent targets that should be make.
 * 2014-10-07 print version
 * 2014-10-06 added --root option
@@ -29,8 +30,11 @@ make
 ## Options
 
 * -h|--help help (this screen)
-* -x|--xml|--gexf XML output (gexf)
-* -d|--deep print the deepest indepedent targets.
+* -f|--format (format)
+    * (d)ot graphiz dot output format (default).
+    * (x)xml (g)exf XML output (gexf)
+    * (E) print the deepest indepedent targets.
+    * (L)ist all targets.
 * -s|--suffix only print file extension
 * -b|--basename  only print file basename
 * -r|--root  show root node
@@ -47,7 +51,7 @@ make -Bnd | make2graph | dot -Tpng -o out.png
 ```
 
 ```
-make -Bnd | make2graph -x > output.xml
+make -Bnd | make2graph --format x > output.xml
 ```
 
 
@@ -136,7 +140,7 @@ n25 -> n5 ;
 
 ```bash
 $ cd tabix-0.2.5
-$ make -Bnd |make2graph -x
+$ make -Bnd |make2graph --format x
 ```
 
 ```xml
@@ -264,7 +268,8 @@ rm 3.a 4.a 4.b
 
 deep output :
 ```
-$ make -nd  all  | ./make2graph -d1.b
+$ make -nd  all  | ./make2graph --format e
+1.b
 2.b
 3.c
 5.a
@@ -282,7 +287,7 @@ echo "3.b" > 3.c
 new deep output :
 
 ```
-$ make -nd  all  | ./make2graph -d 
+$ make -nd  all  | ./make2graph --format e
 1.c
 2.b
 5.a

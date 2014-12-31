@@ -9,8 +9,8 @@ make -Bnd | make2graph > output.dot
 Creates a graph of dependencies from GNU-Make; Output is a graphiz-dot file or a Gexf-XML file. sub-makefiles are not supported.
 .SH OPTIONS
 .TP
-.B \-\^x 
-XML output (gexf)
+.B \-\^f 
+formats :(x) XML output (gexf), (E) print a list of deepest targets, (l) print a list of targets, (d) dot output (default)
 .TP
 .B \-\^b
 print file basename
