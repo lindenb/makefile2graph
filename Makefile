@@ -9,7 +9,7 @@ man1dir = $(mandir)/man1
 bin_PROGRAMS = make2graph
 bin_SCRIPTS = makefile2graph
 pkgdoc_DATA = LICENSE README.md screenshot.png
-man1_MANS = make2graph.1
+man1_MANS = make2graph.1 makefile2graph.1
 
 CFLAGS ?= -O3 -Wall
 
