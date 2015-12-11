@@ -7,6 +7,9 @@ Output is a graphviz-dot file ( http://www.graphviz.org/ ), a Gexf-XML file ( ht
 
 sub-makefiles are not supported.
 
+[![Build Status](https://travis-ci.org/lindenb/makefile2graph.svg)](https://travis-ci.or
+g/lindenb/makefile2graph)
+
 ## History
 
 * 2014-12-31 added option `--format`, removed otpions 'x' and 'd'
