@@ -41,7 +41,7 @@ History:
 #include <getopt.h>
 
 /* version */
-#define M2G_VERSION "1.5.0"
+#define M2G_VERSION "2.0.0"
 
 #define OUT_OF_MEMORY do { fprintf(stderr,"%s: %d : OUT_OF_MEMORY.\n",__FILE__,__LINE__); exit(EXIT_FAILURE);} while(0)
 
@@ -175,26 +175,54 @@ static char* targetLabel(GraphPtr g,const char* s)
 	return p;
 	}
 
-/** read line character by character */
-static char* readline(FILE* in)
+typedef struct FileReader
+	{
+	FILE* in;
+	char* line;
+	int depth;
+	}FileReader,*FileReaderPtr;
+
+static FileReaderPtr FileReaderNew(FILE* in)
+	{
+	FileReaderPtr p = (FileReaderPtr)malloc(sizeof(FileReader));
+	if(p==NULL) OUT_OF_MEMORY;
+	p->in = in;
+	p->line=NULL;
+	p->depth=-1;
+	return p;
+	}
+
+static void FileReaderFree(FileReaderPtr p)
+	{
+	if(p==NULL) return;
+	if(p->line!=NULL) free(p->line);
+	free(p);
+	}
+
+static char* FileReaderNext(FileReaderPtr reader)
 	{
 	int c;
-	char* p=NULL;
 	size_t len=0UL;
-	if(feof(in)) return NULL;
-	p=(char*)malloc(sizeof(char));
-	if(p==NULL) OUT_OF_MEMORY;
-	while((c=fgetc(in))!=-1 && c!='\n')
+	if(feof(reader->in)) return NULL;
+	reader->depth=0;
+	if(reader->line!=NULL) free(reader->line); 
+	reader->line=(char*)malloc(sizeof(char));
+	if(reader->line==NULL) OUT_OF_MEMORY;
+	while((c=fgetc(reader->in))!=-1 && c!='\n')
 		{
-		p=(char*)realloc((char*)p,sizeof(char)*(len+2));
-		if(p==NULL) OUT_OF_MEMORY;
+		reader->line=(char*)realloc((char*)reader->line,sizeof(char)*(len+2));
+		if(reader->line==NULL) OUT_OF_MEMORY;
 		if(!(len==0 && isspace(c))) /* trim on the fly */
 			{
-			p[len++]=c;
+			reader->line[len++]=c;
+			}
+		else
+			{
+			reader->depth++;
 			}
 		}
-	p[len]=0;
-	return p;
+	reader->line[len]=0;
+	return reader->line;
 	}
  
  /** get target, create it it doesn't exist */
@@ -231,11 +259,11 @@ static TargetPtr GraphGetTarget(GraphPtr graph,const char* name)
         }
 
 /** scan the makefile -nd output */
-static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
+static void GraphScan(GraphPtr graph,TargetPtr root,FileReaderPtr in)
 	{
-	char* line=NULL;
 	char* makefile_name=NULL;
-	while((line=readline(in))!=NULL)
+	char* line;
+	while((line=FileReaderNext(in))!=NULL)
 		{
 		 if(startsWith(line,"Considering target file"))
 		        {
@@ -245,24 +273,21 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
 		           strcmp(tName,makefile_name)==0)
 		        	{
 		        	free(tName);
-		        	free(line);
 		        	//skip lines
-		        	while((line=readline(in))!=NULL)
+		        	while((line=FileReaderNext(in))!=NULL)
 		        		{
 		        		if(startsWith(line,"Finished prerequisites of target file "))
-						{
-						tName=targetName(line);
-						free(line);
-						if(strcmp(tName,makefile_name)==0)
 							{
+							tName=targetName(line);
+							if(strcmp(tName,makefile_name)==0)
+								{
+								free(tName);
+								break;
+								}
 							free(tName);
-							break;
+							continue;
 							}
-						free(tName);
-						continue;
 						}
-					free(line);
-					}
 		        	continue;
 		        	} 
 
@@ -272,40 +297,36 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
 
 		        TargetAddChildren(root,child);
 		        GraphScan(graph,child,in);
-
 		        }
 		    else if(startsWith(line,"Must remake target "))
 			     {
-			     char* tName=targetName(line);
+			     char* tName = targetName(line);
 			     GraphGetTarget(graph,tName)->must_remake=1;
 			     free(tName);
 			     }
 		    else if(startsWith(line,"Pruning file "))
 			     {
-			     char* tName=targetName(line);
+			     char* tName = targetName(line);
 			     TargetAddChildren(root,GraphGetTarget(graph,tName));
 			     free(tName);
 			     }
 		    else if(startsWith(line,"Finished prerequisites of target file "))
-			{
-			char* tName=targetName(line);
-			if(strcmp(tName,root->name)!=0)
-				 {
-				 fprintf(stderr,"expected %s got %s\n", root->name , line);
-				 exit(EXIT_FAILURE);
-				 }
-			free(tName);
-			free(line);
-			break;
-			}
+				{
+				char* tName=targetName(line);
+				if(strcmp(tName,root->name)!=0)
+					 {
+					 fprintf(stderr,"expected %s got %s\n", root->name , line);
+					 exit(EXIT_FAILURE);
+					 }
+				free(tName);
+				break;
+				}
 		    else if(startsWith(line,"Reading makefile "))
-			{
-			free(makefile_name);
-			makefile_name=targetName(line);
+				{
+				free(makefile_name);
+				makefile_name=targetName(line);
+				}
 			}
-		       
-		free(line);
-		}
 	free(makefile_name);
 	}
 
@@ -564,18 +585,22 @@ int main(int argc,char** argv)
 	app->root=GraphGetTarget(app,"<ROOT>");
 	if(optind==argc)
 		{
-		GraphScan(app,app->root,stdin);
+		FileReaderPtr fr = FileReaderNew(stdin);
+		GraphScan(app,app->root,fr);
+		FileReaderFree(fr);
 		}
 	else if(optind+1==argc)
 		{
 		FILE* in=fopen(argv[optind],"r");
+		FileReaderPtr fr = FileReaderNew(in);
 		if(in==NULL)
 			{
 			fprintf(stderr,"Cannot open \"%s\" : \"%s\".\n",argv[optind],strerror(errno));
 			return EXIT_FAILURE;
 			}
-		GraphScan(app,app->root,in);
+		GraphScan(app,app->root,fr);
 		fclose(in);
+		FileReaderFree(fr);
 		}
 	else
 		{
