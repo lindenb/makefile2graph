@@ -277,10 +277,15 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in, size_t level)
 
 		        TargetPtr child=GraphGetTarget(graph,tName);
 
+			// fprintf(stderr, "a: %zu(%s)->%zu(%s)\n", level, root->name, iLevel, tName);
 		        free(tName);
 
-		        TargetAddChildren(root,child);
-		        GraphScan(graph,child,in,iLevel+1);
+			if(level+1 >= iLevel)
+			    {
+			    TargetAddChildren(root,child);
+			    // fprintf(stderr, "b: %zu(%s)->%zu(%s)\n", level, root->name, iLevel, child->name);
+			    GraphScan(graph,child,in,iLevel+1);
+			    }
 
 		        }
 		    else if(startsWith(line,"Must remake target "))
@@ -295,7 +300,7 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in, size_t level)
 			     TargetAddChildren(root,GraphGetTarget(graph,tName));
 			     free(tName);
 			     }
-		    else if(startsWith(line,"Finished prerequisites of target file "))
+		    else if(startsWith(line,"Finished prerequisites of target file ") && (iLevel == level+1))
 			{
 			char* tName=targetName(line);
 			if(strcmp(tName,root->name)!=0)
