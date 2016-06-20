@@ -300,7 +300,7 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in, size_t level)
 			     TargetAddChildren(root,GraphGetTarget(graph,tName));
 			     free(tName);
 			     }
-		    else if(startsWith(line,"Finished prerequisites of target file ") && (iLevel == level+1))
+		    else if(startsWith(line,"Finished prerequisites of target file ") && (level+1 >= iLevel))
 			{
 			char* tName=targetName(line);
 			if(strcmp(tName,root->name)!=0)
