@@ -39,6 +39,7 @@ History:
 #include <unistd.h>
 #include <errno.h>
 #include <getopt.h>
+#include <assert.h>
 
 /* version */
 #define M2G_VERSION "1.5.0"
@@ -176,8 +177,10 @@ static char* targetLabel(GraphPtr g,const char* s)
 	}
 
 /** read line character by character */
-static char* readline(FILE* in)
+static char* readline(FILE* in, size_t* level)
 	{
+	assert(level);
+	*level= 0UL;
 	int c;
 	char* p=NULL;
 	size_t len=0UL;
@@ -191,6 +194,10 @@ static char* readline(FILE* in)
 		if(!(len==0 && isspace(c))) /* trim on the fly */
 			{
 			p[len++]=c;
+			}
+		    else
+			{
+			(*level)++;
 			}
 		}
 	p[len]=0;
@@ -231,11 +238,12 @@ static TargetPtr GraphGetTarget(GraphPtr graph,const char* name)
         }
 
 /** scan the makefile -nd output */
-static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
+static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in, size_t level)
 	{
 	char* line=NULL;
 	char* makefile_name=NULL;
-	while((line=readline(in))!=NULL)
+	size_t iLevel=0UL;
+	while((line=readline(in, &iLevel))!=NULL)
 		{
 		 if(startsWith(line,"Considering target file"))
 		        {
@@ -247,7 +255,8 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
 		        	free(tName);
 		        	free(line);
 		        	//skip lines
-		        	while((line=readline(in))!=NULL)
+				size_t iLevelDump=0UL;
+		        	while((line=readline(in, &iLevelDump))!=NULL)
 		        		{
 		        		if(startsWith(line,"Finished prerequisites of target file "))
 						{
@@ -268,10 +277,15 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
 
 		        TargetPtr child=GraphGetTarget(graph,tName);
 
+			// fprintf(stderr, "a: %zu(%s)->%zu(%s)\n", level, root->name, iLevel, tName);
 		        free(tName);
 
-		        TargetAddChildren(root,child);
-		        GraphScan(graph,child,in);
+			if(level+1 >= iLevel)
+			    {
+			    TargetAddChildren(root,child);
+			    // fprintf(stderr, "b: %zu(%s)->%zu(%s)\n", level, root->name, iLevel, child->name);
+			    GraphScan(graph,child,in,iLevel+1);
+			    }
 
 		        }
 		    else if(startsWith(line,"Must remake target "))
@@ -286,7 +300,7 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in)
 			     TargetAddChildren(root,GraphGetTarget(graph,tName));
 			     free(tName);
 			     }
-		    else if(startsWith(line,"Finished prerequisites of target file "))
+		    else if(startsWith(line,"Finished prerequisites of target file ") && (level+1 >= iLevel))
 			{
 			char* tName=targetName(line);
 			if(strcmp(tName,root->name)!=0)
@@ -564,7 +578,7 @@ int main(int argc,char** argv)
 	app->root=GraphGetTarget(app,"<ROOT>");
 	if(optind==argc)
 		{
-		GraphScan(app,app->root,stdin);
+		GraphScan(app,app->root,stdin,0);
 		}
 	else if(optind+1==argc)
 		{
@@ -574,7 +588,7 @@ int main(int argc,char** argv)
 			fprintf(stderr,"Cannot open \"%s\" : \"%s\".\n",argv[optind],strerror(errno));
 			return EXIT_FAILURE;
 			}
-		GraphScan(app,app->root,in);
+		GraphScan(app,app->root,in,0);
 		fclose(in);
 		}
 	else
