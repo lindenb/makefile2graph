@@ -138,7 +138,19 @@ static int startsWith(const char* str,const char* pre)
 	{
     	size_t lenpre = strlen(pre), lenstr = strlen(str);
    	return lenstr < lenpre ? 0 : strncmp(pre, str, lenpre) == 0;
-	}
+  }
+
+static int endsWith(const char *str, const char *suffix)
+{
+  if (!str || !suffix)
+    return 0;
+  size_t lenstr = strlen(str);
+  size_t lensuffix = strlen(suffix);
+  if (lensuffix >  lenstr)
+    return 0;
+  return strncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
+}
+
 
 /** extract filename between '`' and "'" 
  * Make v4.0 changed this: the first separator is now "'"
@@ -258,7 +270,7 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in, size_t level)
 				size_t iLevelDump=0UL;
 		        	while((line=readline(in, &iLevelDump))!=NULL)
 		        		{
-		        		if(startsWith(line,"Finished prerequisites of target file "))
+                if(startsWith(line,"Finished prerequisites of target file ") || endsWith(line, "was considered already.") )
 						{
 						tName=targetName(line);
 						free(line);
@@ -300,7 +312,7 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in, size_t level)
 			     TargetAddChildren(root,GraphGetTarget(graph,tName));
 			     free(tName);
 			     }
-		    else if(startsWith(line,"Finished prerequisites of target file ") && (level+1 >= iLevel))
+        else if( (startsWith(line,"Finished prerequisites of target file ") || endsWith(line, "was considered already.")) && (level+1 >= iLevel))
 			{
 			char* tName=targetName(line);
 			if(strcmp(tName,root->name)!=0)
