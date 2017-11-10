@@ -1,3 +1,4 @@
 #!/bin/sh
 set -eu
+export LANG=C
 exec make -nd "$@" |make2graph
