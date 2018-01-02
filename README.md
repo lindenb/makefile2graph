@@ -7,8 +7,7 @@ Output is a graphviz-dot file ( http://www.graphviz.org/ ), a Gexf-XML file ( ht
 
 sub-makefiles are not supported.
 
-[![Build Status](https://travis-ci.org/lindenb/makefile2graph.svg)](https://travis-ci.or
-g/lindenb/makefile2graph)
+![https://travis-ci.org/lindenb/makefile2graph.svg](https://travis-ci.org/lindenb/makefile2graph)
 
 ## History
 
@@ -57,6 +56,9 @@ make -Bnd | make2graph | dot -Tpng -o out.png
 make -Bnd | make2graph --format x > output.xml
 ```
 
+## Locale
+
+make2graph only parses english messages from GNU make. If you're using another locale, you should set `LC_ALL=C`. 
 
 
 ## Examples
