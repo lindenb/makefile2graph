@@ -358,10 +358,20 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 			}
 		else
 			{
+			const char* label=targetLabel(g,t->name);
 			fprintf(out,
-				"n%zu[label=\"%s\", color=\"%s\"];\n",
-				t->id,
-				targetLabel(g,t->name),
+				"n%zu[label=\"",
+				t->id);
+			while(*label)
+				{
+				if(*label=='\"')
+					fputs("\\\"",out);
+				else
+					fputc(*label,out);
+				label++;
+				}
+			fprintf(out,
+				"\", color=\"%s\"];\n",
 				(t->must_remake?"red":"green")
 				);
 			}
