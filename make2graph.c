@@ -372,7 +372,7 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 				}
 			fprintf(out,
 				"\", color=\"%s\"];\n",
-				(t->must_remake?"red":"green")
+				(t->must_remake?"red":"forestgreen")
 				);
 			}
 
