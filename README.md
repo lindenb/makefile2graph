@@ -11,6 +11,7 @@ sub-makefiles are not supported.
 
 ## History
 
+* 2022-12-17 bumped gexf schema version, added viz attributes see [GEXF File Format](https://gexf.net/schema.html)
 * 2014-12-31 added option `--format`, removed otpions 'x' and 'd'
 * 2014-12-22 added 'deep' output. I need this when I'm working on a cluster and I need to know the deepest independent targets that should be make.
 * 2014-10-07 print version

@@ -40,11 +40,14 @@ History:
 #include <errno.h>
 #include <getopt.h>
 #include <assert.h>
+#include <math.h>
 
 /* version */
-#define M2G_VERSION "1.5.0"
+#define M2G_VERSION "1.6.0"
 
 #define OUT_OF_MEMORY do { fprintf(stderr,"%s: %d : OUT_OF_MEMORY.\n",__FILE__,__LINE__); exit(EXIT_FAILURE);} while(0)
+
+#define GEXF_NODE_VIZ_SIZE 10.0
 
 /* as https://github.com/lindenb/makefile2graph/issues/9 */
 static char* StrNDup (const char *s, size_t n)
@@ -68,6 +71,11 @@ enum output_type {
 	output_gexf,
 	output_deep,
 	output_list
+	};
+
+enum layout_type {
+	layout_nop,
+	layout_circular
 	};
 
 /** a Target */
@@ -391,14 +399,34 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 	fputs("}\n",out);
 	}
 
+void PositionNodeCircular(FILE* out,double angle,double radius)
+	{
+		fputs("\">\n",out);
 
+		char viz_size[100];
+		snprintf(viz_size,100,"        <viz:size value=\"%f\"/>\n",GEXF_NODE_VIZ_SIZE);
+		fputs(viz_size,out);
+
+		char viz_position[100];
+		double pos_x = radius * cos(angle);
+		double pos_y = radius * sin(angle);
+		snprintf(viz_position,100,"        <viz:position x=\"%lf\" y=\"%lf\"/>\n",pos_y,pos_x);
+		fputs(viz_position,out);
+
+		fputs("      </node>\n",out);
+	}
+
+void PositionNodeNOP(FILE* out)
+	{
+		fputs("\"/>\n",out);
+	}
 
 /** export a Gephi / Gexf */
-void DumpGraphAsGexf(GraphPtr g,FILE* out)
+void DumpGraphAsGexf(GraphPtr g,FILE* out,int layout)
 	{
 	size_t i=0,j=0,k=0UL;
 	fputs("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",out);
-	fputs("<gexf xmlns=\"http://www.gexf.net/1.2draft\" version=\"1.2\">\n",out);
+	fputs("<gexf xmlns=\"http://gexf.net/1.3\" version=\"1.3\" xmlns:viz=\"http://gexf.net/1.3/viz\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://gexf.net/1.3 http://gexf.net/1.3/gexf.xsd\">\n",out);
 	fputs("  <meta>\n",out);
 	fputs("    <creator>https://github.com/lindenb/makefile2graph version:" M2G_VERSION "</creator>\n",out);
 	fputs("    <description>Creates a graph from a Makefile</description>\n",out);
@@ -406,6 +434,14 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 	fputs("  <graph mode=\"static\" defaultedgetype=\"directed\">\n",out);
 	fputs("    <attributes class=\"node\" mode=\"static\"/>\n",out);
 	fputs("    <nodes>\n",out);
+
+	double node_count = (double)(g->target_count);
+	double circumference = (double)(GEXF_NODE_VIZ_SIZE * 10.0 * g->target_count);
+	double radius = circumference / (2 * (2 * asin(1.0)));
+
+	double angle_seg = 360 / node_count;
+	double angle_cur = 0;
+
 	for(i=0; i< g->target_count; ++i)
 		{
 		j=0UL;
@@ -428,7 +464,13 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out)
 				}
 			++j;
 			}
-		fputs("\"/>\n",out);
+		switch(layout)
+			{
+			case layout_circular: PositionNodeCircular(out,angle_cur,radius); break;
+			default: PositionNodeNOP(out); break;
+			}
+
+		angle_cur += angle_seg;
 		}
 	fputs("    </nodes>\n",out);
 	fputs("    <edges>\n",out);
@@ -519,6 +561,9 @@ static void usage(FILE* out)
 	fputs("\t\t(x)xml (g)exf XML output (gexf)\n",out);
 	fputs("\t\t(E) print the deepest indepedent targets.\n",out);
 	fputs("\t\t(L)ist all targets.\n",out);
+	fputs("\t-l|--layout (layout)\n",out);
+	fputs("\t\t(n)op ... don't add any layout config (default).\n",out);
+	fputs("\t\t(c)ircular ... position nodes in a circle.\n",out);
 	fputs("\t-b|--basename only print file basename.\n",out);
 	fputs("\t-s|--suffix only print file extension.\n",out);
 	fputs("\t-r|--root show <ROOT> node.\n",out);
@@ -529,6 +574,7 @@ static void usage(FILE* out)
 int main(int argc,char** argv)
 	{
 	int out_format = output_dot;
+	int layout = layout_nop;
 	int print_basename_only=0;
 	int print_suffix_only=0;
 	int show_root=0;
@@ -538,6 +584,7 @@ int main(int argc,char** argv)
 		static struct option long_options[] =
 		     {
 		        {"format",  required_argument ,0, 'f'},
+		        {"layout",  optional_argument ,0, 'l'},
 			{"help",   no_argument, 0, 'h'},
 			{"basename",   no_argument, 0, 'b'},
 			{"suffix",   no_argument, 0, 's'},
@@ -546,7 +593,7 @@ int main(int argc,char** argv)
 		       {0, 0, 0, 0}
 		     };
 		int option_index = 0;
-		int c = getopt_long (argc, argv, "hbsrvf:",
+		int c = getopt_long (argc, argv, "hbsrvf:l:",
 		                    long_options, &option_index);
 		if (c == -1) break;
 		switch (c)
@@ -567,6 +614,16 @@ int main(int argc,char** argv)
 						return EXIT_FAILURE;
 						break;
 						}
+					}
+				break;
+				}
+			case 'l':
+				{
+				switch(optarg[0])
+					{
+					case 'c': layout = layout_circular; break;
+					/* TODO: case 'r': layout = layout_random; break; */
+					default: layout = layout_nop; break;
 					}
 				break;
 				}
@@ -621,7 +678,7 @@ int main(int argc,char** argv)
 	switch(out_format)
 		{
 		case output_gexf : 
-			DumpGraphAsGexf(app,stdout);
+			DumpGraphAsGexf(app,stdout,layout);
 			break;
 		case output_deep : 
 			DumpGraphAsDeep(app,stdout);
