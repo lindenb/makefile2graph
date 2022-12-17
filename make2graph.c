@@ -74,7 +74,7 @@ enum output_type {
 	};
 
 enum layout_type {
-	layout_nop,
+	layout_none,
 	layout_circular
 	};
 
@@ -416,7 +416,7 @@ void PositionNodeCircular(FILE* out,double angle,double radius)
 		fputs("      </node>\n",out);
 	}
 
-void PositionNodeNOP(FILE* out)
+void PositionNodeNone(FILE* out)
 	{
 		fputs("\"/>\n",out);
 	}
@@ -467,7 +467,7 @@ void DumpGraphAsGexf(GraphPtr g,FILE* out,int layout)
 		switch(layout)
 			{
 			case layout_circular: PositionNodeCircular(out,angle_cur,radius); break;
-			default: PositionNodeNOP(out); break;
+			default: PositionNodeNone(out); break;
 			}
 
 		angle_cur += angle_seg;
@@ -574,7 +574,7 @@ static void usage(FILE* out)
 int main(int argc,char** argv)
 	{
 	int out_format = output_dot;
-	int layout = layout_nop;
+	int layout = layout_none;
 	int print_basename_only=0;
 	int print_suffix_only=0;
 	int show_root=0;
@@ -623,7 +623,7 @@ int main(int argc,char** argv)
 					{
 					case 'c': layout = layout_circular; break;
 					/* TODO: case 'r': layout = layout_random; break; */
-					default: layout = layout_nop; break;
+					default: layout = layout_none; break;
 					}
 				break;
 				}
