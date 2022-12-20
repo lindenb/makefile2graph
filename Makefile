@@ -12,6 +12,7 @@ pkgdoc_DATA = LICENSE README.md screenshot.png
 man1_MANS = make2graph.1 makefile2graph.1
 
 CFLAGS ?= -O3 -Wall
+LDLIBS ?= -lm
 
 .PHONY: all clean install test
 .DELETE_ON_ERROR:
