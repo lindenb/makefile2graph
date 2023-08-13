@@ -27,6 +27,12 @@ install:
 	install $(pkgdoc_DATA) $(DESTDIR)$(pkgdocdir)
 	install $(man1_MANS) $(DESTDIR)$(man1dir)
 
+uninstall:
+	for item in $(bin_PROGRAMS); do rm $(DESTDIR)$(bindir)/$${item}; done
+	for item in $(bin_SCRIPTS); do rm $(DESTDIR)$(bindir)/$${item}; done
+	for item in $(pkgdoc_DATA); do rm $(DESTDIR)$(pkgdocdir)/$${item}; done
+	for item in $(man1_MANS); do rm $(DESTDIR)$(man1dir)/$${item}; done
+
 test: all
 	$(MAKE) -Bnd | ./make2graph | dot
 	$(MAKE) -Bnd | ./make2graph --format x
