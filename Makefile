@@ -13,7 +13,7 @@ man1_MANS = make2graph.1 makefile2graph.1
 
 CFLAGS ?= -O3 -Wall
 
-.PHONY: all clean install test
+.PHONY: all clean install uninstall test
 .DELETE_ON_ERROR:
 
 all: $(bin_PROGRAMS)
@@ -40,7 +40,7 @@ test: all
 	$(MAKE) -Bnd | ./make2graph --format e
 	$(MAKE) -Bnd | ./make2graph --root
 	$(MAKE) -Bnd | ./make2graph -c puor9 -d color=pink | dot
-	$(MAKE) -Bnd | ./make2graph -g bgcolor=lightsalmon -n colorscheme=paired9,style=filled,fillcolor=1 -e color=blue | dot
+	$(MAKE) -Bnd | ./make2graph -g bgcolor=lightsalmon -n colorscheme=paired9,style=filled,fillcolor=1 -e style=filled,fillcolor=3,color=blue | dot
 	$(MAKE) -Bnd | ./make2graph -d color=pink | dot
 	PATH=.:$(PATH) ./makefile2graph
 	PATH=.:$(PATH) ./makefile2graph -B
