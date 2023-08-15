@@ -67,6 +67,7 @@ static char* StrNDup (const char *s, size_t n)
 enum output_type {
 	output_dot,
 	output_gexf,
+	output_mermaid,
 	output_deep,
 	output_list
 	};
@@ -436,6 +437,67 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 	fputs("}\n",out);
 	}
 
+/** export a mermaid flowchart */
+static void DumpGraphAsMermaid(GraphPtr g,FILE* out)
+	{
+	size_t i=0,j=0;
+
+	if (g->colorscheme != NULL)
+			fprintf(out, "%%%%{ init: { 'theme': '%s' } }%%%%\n",
+					g->colorscheme);
+
+	fputs("flowchart TD\n", out);
+	
+	if (g->graph_attributes!=NULL)
+		fprintf(out, "    classDef default %s\n", g->graph_attributes);
+	if (g->node_attributes!=NULL)
+		fprintf(out, "    classDef node %s\n", g->node_attributes);
+	if (g->edge_attributes!=NULL)
+		fprintf(out, "    linkStyle default %s\n", g->edge_attributes);
+	if (g->dirty_attributes != NULL)
+		fprintf(out, "    classDef dirty %s\n", g->dirty_attributes);
+
+	for(i=0; i< g->target_count; ++i)
+		{
+		TargetPtr t= g->targets[i];
+		if( !g->show_root && t==g->root ) continue;
+		
+		if(t==g->root)
+			fprintf(out,"    n%zu{ }\n",t->id);
+		else
+			{
+			const char* label=targetLabel(g,t->name);
+			if (t->must_remake)
+				fprintf(out,"    n%zu{{\"", t->id);
+			else
+				fprintf(out,"    n%zu(\"", t->id);
+			while(*label)
+				{
+				if(*label=='\"')
+					fputs("\\\"",out);
+				else
+					fputc(*label,out);
+				label++;
+				}
+			if (t->must_remake)
+				fputs("\"}}:::dirty\n", out);
+			else
+				fputs("\")\n", out);
+			}
+		}
+	for(i=0; i< g->target_count; ++i)
+		{
+		TargetPtr t= g->targets[i];
+		if( !g->show_root && t==g->root) continue;
+		
+		for(j=0; j< t->n_children; ++j)
+			{
+			TargetPtr c = t->children[j];
+			fprintf(out,"    n%zu --> n%zu\n", t->id , c->id);
+			}
+		}
+	}
+
 /** export a Gephi / Gexf */
 static void DumpGraphAsGexf(GraphPtr g,FILE* out)
 	{
@@ -559,7 +621,7 @@ static void usage(FILE* out)
 		"\t-h|--help help (this screen)\n",out);
 	fputs("\t-f|--format (format)\n",out);
 	fputs("\t\t(d)ot graphiz dot output format (default).\n",out);
-	fputs("\t\t(x)xml (g)exf XML output (gexf)\n",out);
+	fputs("\t\t(x)xml (g)exf XML output (gexf) (M)ermaid output\n",out);
 	fputs("\t\t(E) print the deepest indepedent targets.\n",out);
 	fputs("\t\t(L)ist all targets.\n",out);
 	fputs("\t-b|--basename only print file basename.\n",out);
@@ -618,6 +680,7 @@ int main(int argc,char** argv)
 					{
 					case 'x':case 'X': 
 					case 'g':case 'G': out_format = output_gexf; break;
+					case 'm':case 'M': out_format = output_mermaid; break;
 					case 'd':case 'D': out_format = output_dot; break;
 					case 'e':case 'E': out_format = output_deep; break;
 					case 'l':case 'L': out_format = output_list; break;
@@ -691,7 +754,10 @@ int main(int argc,char** argv)
 		case output_gexf : 
 			DumpGraphAsGexf(app,stdout);
 			break;
-		case output_deep : 
+		case output_mermaid:
+			DumpGraphAsMermaid(app, stdout);
+			break;
+		case output_deep:
 			DumpGraphAsDeep(app,stdout);
 			break;
 		case output_list : 

@@ -36,12 +36,14 @@ uninstall:
 test: all
 	$(MAKE) -Bnd | ./make2graph | dot
 	$(MAKE) -Bnd | ./make2graph --format x
+	$(MAKE) -Bnd | ./make2graph --format m
 	$(MAKE) -Bnd | ./make2graph --format l
 	$(MAKE) -Bnd | ./make2graph --format e
 	$(MAKE) -Bnd | ./make2graph --root
 	$(MAKE) -Bnd | ./make2graph -c puor9 -d color=pink | dot
 	$(MAKE) -Bnd | ./make2graph -g bgcolor=lightsalmon -n colorscheme=paired9,style=filled,fillcolor=1 -e style=filled,fillcolor=3,color=blue | dot
 	$(MAKE) -Bnd | ./make2graph -d color=pink | dot
+	$(MAKE) -Bnd | ./make2graph --format m -g "fill:#80ed99" -n "fill:#f4e285" -e "stroke:#00afb9,stroke-width:4px" -d "fill:#e27396"
 	PATH=.:$(PATH) ./makefile2graph
 	PATH=.:$(PATH) ./makefile2graph -B
 
