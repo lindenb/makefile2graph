@@ -27,8 +27,9 @@ History:
    * Sept 2014: fixed new format for GNU-Make v4. ( https://github.com/lindenb/makefile2graph/issues/1 )
    * Sept 2014: added long_opt , options basename and suffix
    * Nov  2014: added option to hide ROOT node
-   * Dec  2014: new output. Print the deepest independant targets 
+   * Dec  2014: new output. Print the deepest independant targets
    * Desc 2014: MacOS bug, changed options
+   * Aug  2023: colorscheme, graph, node, and edge attributes
 
 */
 
@@ -81,6 +82,8 @@ typedef struct target_t
 	struct target_t** children;
 	/* number of children */
 	size_t n_children;
+	/* number of children */
+	size_t level;
 	/* target is dirty */
 	int must_remake;
 	}Target,*TargetPtr;
@@ -102,6 +105,16 @@ typedef struct make2graph_t
 	int print_suffix_only;
 	/** show <root> node https://github.com/lindenb/makefile2graph/issues/3 */
 	int show_root;
+	/** sets colorscheme applied interleaved to all nodes */
+	char *colorscheme;
+	/** sets attributes applied to the graph */
+	char *graph_attributes;
+	/** sets attributes applied to all nodes */
+	char *node_attributes;
+	/** sets attributes applied to all edges */
+	char *edge_attributes;
+	/** sets attributes applied to dirty nodes only */
+	char *dirty_attributes;
 	}Graph,*GraphPtr;
 
 
@@ -119,6 +132,7 @@ static TargetPtr TargetNew(GraphPtr graph,const char* name)
 	target->id=(++graph->id_generator);
 	target->name=strdup(name);
 	if(target->name==NULL) OUT_OF_MEMORY;
+	target->level=0;
 	return target;
 	}
 
@@ -130,6 +144,7 @@ static void TargetAddChildren(TargetPtr root, TargetPtr c)
 	root->children=realloc(root->children,sizeof(TargetPtr)*(root->n_children+1));
 	if(root->children==NULL)  OUT_OF_MEMORY;
 	root->children[root->n_children++]=c;
+	c->level=root->level+1;
 	qsort(root->children, root->n_children ,sizeof(TargetPtr) , TargetCmp);
 	}
 
@@ -335,13 +350,32 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in, size_t level)
 	free(makefile_name);
 	}
 
+
 /** export a graphiz dot */
 static void DumpGraphAsDot(GraphPtr g,FILE* out)
 	{
 	size_t i=0,j=0;
-	
+
 	fputs("digraph G {\n",out);
 
+	if (g->graph_attributes!=NULL)
+		fprintf(out,
+			"graph [%s];\n",
+			(g->graph_attributes));
+	
+	if (g->node_attributes!=NULL)
+		fprintf(out,
+			"node [%s];\n",
+			(g->node_attributes));
+	else if (g->colorscheme!=NULL)
+		fprintf(out,
+			"node [colorscheme=\"%s\"];\n",
+			(g->colorscheme));
+
+	if (g->edge_attributes!=NULL)
+		fprintf(out,
+			"edge [%s];\n",
+			(g->edge_attributes));
 
 	for(i=0; i< g->target_count; ++i)
 		{
@@ -360,7 +394,7 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 			{
 			const char* label=targetLabel(g,t->name);
 			fprintf(out,
-				"n%zu[label=\"",
+				"n%zu [label=\"",
 				t->id);
 			while(*label)
 				{
@@ -370,10 +404,21 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 					fputc(*label,out);
 				label++;
 				}
-			fprintf(out,
-				"\", color=\"%s\"];\n",
-				(t->must_remake?"red":"forestgreen")
-				);
+			fputs("\"", out);
+
+			if (g->colorscheme != NULL)
+				fprintf(out,
+					", style=filled, fillcolor=%zu",
+					t->level);
+			
+			if (t->must_remake && g->dirty_attributes!=NULL)
+				fprintf(out,
+						", %s];\n",
+						(g->dirty_attributes));
+			else 
+				fprintf(out,
+					", color=\"%s\"];\n",
+					t->must_remake ? "red" : "forestgreen");
 			}
 
 		}
@@ -391,10 +436,8 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 	fputs("}\n",out);
 	}
 
-
-
 /** export a Gephi / Gexf */
-void DumpGraphAsGexf(GraphPtr g,FILE* out)
+static void DumpGraphAsGexf(GraphPtr g,FILE* out)
 	{
 	size_t i=0,j=0,k=0UL;
 	fputs("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",out);
@@ -522,7 +565,14 @@ static void usage(FILE* out)
 	fputs("\t-b|--basename only print file basename.\n",out);
 	fputs("\t-s|--suffix only print file extension.\n",out);
 	fputs("\t-r|--root show <ROOT> node.\n",out);
-	fputs("\t-v|--version print version.\n",out);
+	fputs("\t-c|--colorscheme (scheme) Set colorscheme applied interleaved to all nodes.\n", out);
+	fputs("\t-g|--graph-attributes: Sets attributes applied to the graph.\n", out);
+	fputs("\t-n|--node-attributes: Sets attributes applied to all nodes.\n", out);
+	fputs("\t-e|--edge-attributes: Sets attributes applied to all edges.\n", out);
+	fputs("\t-e|--dirty-attributes: Sets attributes applied to dirty nodes only.\n", out);
+	fputs("\t-v|--version print version.\n", out);
+	fputs("Notes:\n", out);
+	fputs("\tAttributes require arguments in the form: name1=value1,...\n", out);
 	fputs("\n",out);
 	}
 
@@ -531,22 +581,32 @@ int main(int argc,char** argv)
 	int out_format = output_dot;
 	int print_basename_only=0;
 	int print_suffix_only=0;
+	char *colorscheme=NULL;
+	char *graph_attributes = NULL;
+	char *node_attributes = NULL;
+	char *edge_attributes = NULL;
+	char *dirty_attributes = NULL;
 	int show_root=0;
 	GraphPtr app=NULL;
 	for(;;)
 		{
 		static struct option long_options[] =
 		     {
-		        {"format",  required_argument ,0, 'f'},
+		    {"format",  required_argument ,0, 'f'},
 			{"help",   no_argument, 0, 'h'},
 			{"basename",   no_argument, 0, 'b'},
 			{"suffix",   no_argument, 0, 's'},
 			{"root",   no_argument, 0, 'r'},
+		    {"colorscheme",      required_argument ,0, 'c'},
+		    {"graph-attributes", required_argument ,0, 'g'},
+		    {"node-attributes",  required_argument ,0, 'n'},
+		    {"edge-attributes",  required_argument ,0, 'e'},
+		    {"dirty-attributes",  required_argument ,0, 'd'},
 			{"version",   no_argument, 0, 'v'},
 		       {0, 0, 0, 0}
 		     };
 		int option_index = 0;
-		int c = getopt_long (argc, argv, "hbsrvf:",
+		int c = getopt_long (argc, argv, "hbsrvf:c:g:n:e:d:",
 		                    long_options, &option_index);
 		if (c == -1) break;
 		switch (c)
@@ -574,12 +634,15 @@ int main(int argc,char** argv)
 			case 'b': print_basename_only=1; break;
 			case 's': print_suffix_only=1; break;
 			case 'r': show_root=1; break;
-			case '?':
-		       		fprintf (stderr, "Unknown option `-%c'.\n", optopt);
-		       		return EXIT_FAILURE;
-	   	        default:
-	   	        	fprintf (stderr, "Bad input.\n");
-		       		return EXIT_FAILURE;
+			case 'c': colorscheme=optarg; break;
+			case 'g': graph_attributes=optarg; break;
+			case 'n': node_attributes=optarg; break;
+			case 'e': edge_attributes=optarg; break;
+			case 'd': dirty_attributes=optarg; break;
+   	        default:
+				fprintf(stderr, "Unknown option `-%c' at %d: %s\n", 
+					optopt, optind-1, argv[optind-1]);
+				return EXIT_FAILURE;
 			}
 		  
 		}
@@ -596,6 +659,11 @@ int main(int argc,char** argv)
 	app-> print_basename_only =  print_basename_only ;
 	app-> print_suffix_only =  print_suffix_only ;
 	app-> show_root = show_root;
+	app-> colorscheme = colorscheme;
+	app-> graph_attributes = graph_attributes;
+	app-> node_attributes = node_attributes;
+	app-> edge_attributes = edge_attributes;
+	app-> dirty_attributes = dirty_attributes;
 
 	app->root=GraphGetTarget(app,"<ROOT>");
 	if(optind==argc)

@@ -1,28 +1,58 @@
 .\" This is a comment
 .\" Contact @yokofakun
-.TH make2graph 1 "17 Sept 2014" ".1" "Creates a graph of dependencies from GNU-Make"
+.TH make2graph 1 "17 Sept 2014" "Creates a graph of dependencies from GNU-Make"
 .SH NAME
 makefile2graph \- Creates a graph of dependencies from GNU-Make
 .SH SYNOPSIS
-make -Bnd | make2graph > output.dot
+make -Bnd | make2graph [OPTIONS] > output.gv
 .SH DESCRIPTION
 Creates a graph of dependencies from GNU-Make; Output is a graphiz-dot file or a Gexf-XML file. sub-makefiles are not supported.
 .SH OPTIONS
 .TP
-.B \-\^f 
-formats :(x) XML output (gexf), (E) print a list of deepest targets, (l) print a list of targets, (d) dot output (default)
+.B \f[B]-f\f[R], \f[B]--format\f[R] <format>
+Selects the output format. See the output formats section below for reference.
 .TP
-.B \-\^b
-print file basename
+.B \f[B]-b\f[R], \f[B]--basename\f[R]
+only print file basename
 .TP
-.B \-\^s 
-print file extension
+.B \f[B]-s\f[R], \f[B]--basename\f[R]
+only print file suffix
 .TP
-.B \-\^r
+.B \f[B]-r\f[R], \f[B]--root\f[R]
 show root node
 .TP
-.B \-\^v
+.B \f[B]-c\f[R], \f[B]--colorscheme\f[R] <name>
+Sets colorscheme applied interleaved to all nodes
+.TP
+.B \f[B]-g\f[R], \f[B]--graph-attributes\f[R] <name1=value1>[,name2=value2,...]
+Sets attributes applied to the graph
+.TP
+.B \f[B]-n\f[R], \f[B]--node-attributes\f[R] <name1=value1>[,name2=value2,...]
+Sets attributes attributes applied to all nodes
+.TP
+.B \f[B]-e\f[R], \f[B]--edge-attributes\f[R] <name1=value1>[,name2=value2,...]
+Sets attributes attributes applied to all edges
+.TP
+.B \f[B]-d\f[R], \f[B]--dirty-attributes\f[R] <name1=value1>[,name2=value2,...]
+Sets attributes applied to dirty nodes only
+.TP
+.B \f[B]-v\f[R], \f[B]--version\f[R]
 print version
+.SH OUTPUT FORMATS
+.PP
+make2graph can generate the following output formats:
+.TP
+\f[B]\f[CB]x\f[B]\f[R]
+XML output (gexf)
+.TP
+\f[B]\f[CB]E\f[B]\f[R]
+print a list of deepest targets
+.TP
+\f[B]\f[CB]l\f[B]\f[R]
+print a list of targets
+.TP
+\f[B]\f[CB]d\f[B]\f[R]
+dot output (default)
 .SH SEE ALSO
 makefile2graph(1), make(1), dot(1)
 .SH AUTHOR
