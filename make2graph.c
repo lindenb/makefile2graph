@@ -68,6 +68,7 @@ enum output_type {
 	output_dot,
 	output_gexf,
 	output_mermaid,
+	output_plantuml,
 	output_deep,
 	output_list
 	};
@@ -498,6 +499,69 @@ static void DumpGraphAsMermaid(GraphPtr g,FILE* out)
 		}
 	}
 
+/** export a PlantUML state diagram */
+static void DumpGraphAsPlantUML(GraphPtr g,FILE* out)
+	{
+	size_t i=0,j=0;
+
+	fputs("@startuml\n\nhide empty description\n\n", out);
+	if (g->colorscheme != NULL)
+		fprintf(out, "!theme%s\n", g->colorscheme);
+
+	if (g->graph_attributes!=NULL)
+		fprintf(out, "' graph attributes\n%s\n\n", g->graph_attributes);
+	if (g->node_attributes!=NULL)
+		fprintf(out, "skinparam state {\n  %s\n}\n\n", g->node_attributes);
+	if (g->dirty_attributes != NULL)
+		fprintf(out, "skinparam state<<dirty>> {\n  %s\n}\n\n", g->dirty_attributes);
+
+	for(i=0; i< g->target_count; ++i)
+		{
+		TargetPtr t= g->targets[i];
+		if( g->show_root && t==g->root )
+			{
+			fputs("state \" \" as root {\n", out);
+			if (g->edge_attributes != NULL)
+				fprintf(out, "    ' edge attributes\n    %s\n\n", g->edge_attributes);
+			}
+		else
+			{
+			fputs("    state \"", out);
+			const char* label=targetLabel(g, t->name);
+			while(*label)
+				{
+				if(*label=='\"')
+					fputs("\\\"",out);
+				else
+					fputc(*label,out);
+				label++;
+				}
+			if (t->must_remake)
+				fprintf(out,"\" as n%zu <<dirty>>\n", t->id);
+			else
+				fprintf(out,"\" as n%zu <<node>>\n", t->id);
+			}
+		}
+	fputs("\n", out);
+	for(i=0; i< g->target_count; ++i)
+		{
+		TargetPtr t= g->targets[i];
+		if( !g->show_root && t==g->root) continue;
+		
+		for(j=0; j< t->n_children; ++j)
+			{
+			TargetPtr c = t->children[j];
+			if (t->id == 1)
+				fprintf(out,"    [*] --> n%zu\n", c->id);
+			else
+				fprintf(out,"    n%zu --> n%zu\n", t->id , c->id);
+			}
+		}
+	if( g->show_root )
+		fputs("}\n", out);
+	fputs("@enduml\n\n", out);
+	}
+
 /** export a Gephi / Gexf */
 static void DumpGraphAsGexf(GraphPtr g,FILE* out)
 	{
@@ -620,8 +684,8 @@ static void usage(FILE* out)
 		"Options:\n"
 		"\t-h|--help help (this screen)\n",out);
 	fputs("\t-f|--format (format)\n",out);
-	fputs("\t\t(d)ot graphiz dot output format (default).\n",out);
-	fputs("\t\t(x)xml (g)exf XML output (gexf) (M)ermaid output\n",out);
+	fputs("\t\t(d)ot graphiz dot output (default) (x)ml output\n", out);
+	fputs("\t\t(g)exf XML output (M)ermaid output (P)lantUML output\n",out);
 	fputs("\t\t(E) print the deepest indepedent targets.\n",out);
 	fputs("\t\t(L)ist all targets.\n",out);
 	fputs("\t-b|--basename only print file basename.\n",out);
@@ -681,6 +745,7 @@ int main(int argc,char** argv)
 					case 'x':case 'X': 
 					case 'g':case 'G': out_format = output_gexf; break;
 					case 'm':case 'M': out_format = output_mermaid; break;
+					case 'p':case 'P': out_format = output_plantuml; break;
 					case 'd':case 'D': out_format = output_dot; break;
 					case 'e':case 'E': out_format = output_deep; break;
 					case 'l':case 'L': out_format = output_list; break;
@@ -756,6 +821,9 @@ int main(int argc,char** argv)
 			break;
 		case output_mermaid:
 			DumpGraphAsMermaid(app, stdout);
+			break;
+		case output_plantuml:
+			DumpGraphAsPlantUML(app, stdout);
 			break;
 		case output_deep:
 			DumpGraphAsDeep(app,stdout);

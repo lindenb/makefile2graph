@@ -44,6 +44,7 @@ test: all
 	$(MAKE) -Bnd | ./make2graph -g bgcolor=lightsalmon -n colorscheme=paired9,style=filled,fillcolor=1 -e style=filled,fillcolor=3,color=blue | dot
 	$(MAKE) -Bnd | ./make2graph -d color=pink | dot
 	$(MAKE) -Bnd | ./make2graph --format m -g "fill:#80ed99" -n "fill:#f4e285" -e "stroke:#00afb9,stroke-width:4px" -d "fill:#e27396"
+	$(MAKE) -Bnd | ./make2graph --format p -g "skinparam BackgroundColor LightYellow" -n "BackgroundColor Peru" -e "skinparam ArrowColor Blue" -d "BackgroundColor Salmon"
 	PATH=.:$(PATH) ./makefile2graph
 	PATH=.:$(PATH) ./makefile2graph -B
 
