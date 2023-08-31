@@ -1,16 +1,24 @@
-makefile2graph
-==============
+# makefile2graph
 
-Creates a graph of dependencies from GNU-Make ( http://www.gnu.org/software/make/manual/make.html )
+Creates a graph of dependencies from [GNU-Make](http://www.gnu.org/software/make/manual/make.html)
 
-Output is a graphviz-dot file ( http://www.graphviz.org/ ), a Gexf-XML file ( https://gephi.github.io/ ) or a list of the deepest independent targets that should be make.
+Output can be generated for the following formats:
 
-sub-makefiles are not supported.
+- [Graphviz/dot](http://www.graphviz.org/)
+- [Gexf-XML](https://gephi.github.io/)
+- [PlantUML](https://plantuml.com/)
+- [Mermaid](https://mermaid.js.org/)
+- or a list of the deepest independent targets that should be make.
+
+Notice that sub-makefiles are not supported.
 
 ![https://travis-ci.org/lindenb/makefile2graph.svg](https://travis-ci.org/lindenb/makefile2graph)
 
 ## History
 
+* 2023-08-30 added format [PlantUML](https://plantuml.com/)
+* 2023-08-30 added format [Mermaid](https://mermaid.js.org/)
+* 2023-08-14 added options for setting graph, node, edge, and dirty attributes
 * 2014-12-31 added option `--format`, removed otpions 'x' and 'd'
 * 2014-12-22 added 'deep' output. I need this when I'm working on a cluster and I need to know the deepest independent targets that should be make.
 * 2014-10-07 print version
@@ -18,48 +26,55 @@ sub-makefiles are not supported.
 * 2014-09-17 added long_opt , options basename and suffix
 * 2014-09-16 fixed new format for GNU make v4.0
 
-
 ## Screenshot
 
 ![screenshot.png](screenshot.png)
 
 ## Compilation
 
-```
+```bash
 make
 ```
 
 ## Options
 
-* -h|--help help (this screen)
-* -f|--format (format)
-    * (d)ot graphiz dot output format (default).
-    * (x)xml (g)exf XML output (gexf)
-    * (E) print the deepest indepedent targets.
-    * (L)ist all targets.
-* -s|--suffix only print file extension
-* -b|--basename  only print file basename
-* -r|--root  show root node
-* -v|--version print version
+- -h|--help help (this screen)
+- -f|--format (format)
+  - (d)ot graphiz dot output (default) (x)ml output
+  - (g)exf XML output (M)ermaid output (P)lantUML output
+  - (E) print the deepest indepedent targets.
+  - (L)ist all targets.
+- -b|--basename  only print file basename
+- -s|--suffix only print file extension
+- -r|--root  show root node
+- -c|--colorscheme (scheme) Set colorscheme applied interleaved to all nodes.
+- -g|--graph-attributes: Sets attributes applied to the graph.
+- -n|--node-attributes: Sets attributes applied to all nodes.
+- -e|--edge-attributes: Sets attributes applied to all edges.
+- -e|--dirty-attributes: Sets attributes applied to dirty nodes only.
+- -v|--version print version
 
 ## Usage
 
-```
+```bash
 make -Bnd | make2graph > output.dot
 ```
 
-```
+```bash
 make -Bnd | make2graph | dot -Tpng -o out.png
 ```
 
-```
+```bash
 make -Bnd | make2graph --format x > output.xml
+```
+
+```bash
+make -Bnd | make2graph --format p -g "skinparam BackgroundColor LightYellow" -n "BackgroundColor Peru" -e "skinparam ArrowColor Blue" -d "BackgroundColor Salmon" > output.puml
 ```
 
 ## Locale
 
-make2graph only parses english messages from GNU make. If you're using another locale, you should set `LC_ALL=C`. 
-
+make2graph only parses english messages from GNU make. If you're using another locale, you should set `LC_ALL=C`.
 
 ## Examples
 
@@ -141,11 +156,12 @@ n6 -> n5 ;
 n25 -> n5 ; 
 }
 ```
+
 ### Tabix 0.2.5 - XML
 
 ```bash
 $ cd tabix-0.2.5
-$ make -Bnd |make2graph --format x
+$ make -Bnd | make2graph --format x
 ```
 
 ```xml
@@ -232,13 +248,13 @@ $ make -Bnd |make2graph --format x
 </gexf>
 ```
 
-### Deep output 
+### Deep output
 
 deep output was needed when using a cluster:  I needed a list of all deepest independant targets that must be re-built.
 
 For the following Makefile
 
-```make
+```makefile
 NUMS=1 2 3 4 5
 .PHONY:all clean 
 %.c: %.b
@@ -259,7 +275,7 @@ clean:
 
 make a few targets:
 
-```
+```bash
 $ make  1.a 2.a 3.b 4.c 
 echo "1.a" > 1.a
 echo "2.a" > 2.a
@@ -272,7 +288,8 @@ rm 3.a 4.a 4.b
 ```
 
 deep output :
-```
+
+```bash
 $ make -nd  all  | ./make2graph --format e
 1.b
 2.b
@@ -282,22 +299,20 @@ $ make -nd  all  | ./make2graph --format e
 
 build other targets
 
-```
+```bash
 $ make  1.b 3.c
 echo "1.a" > 1.b
 echo "3.b" > 3.c
 ```
 
-
 new deep output :
 
-```
+```bash
 $ make -nd  all  | ./make2graph --format e
 1.c
 2.b
 5.a
 ```
-
 
 ## Gallery
 
@@ -309,9 +324,6 @@ https://twitter.com/yokofakun/status/278086490809040896
 
 ![workflow](https://pbs.twimg.com/media/A9v2MKXCAAA8hmJ.jpg)
 
-
-
-
 ## Misc
 
 <blockquote class="twitter-tweet" lang="en"><p><a href="https://twitter.com/yokofakun">@yokofakun</a> Using your <a href="https://t.co/Z1xg8dhW2r">https://t.co/Z1xg8dhW2r</a>, and Graphviz 2.36 for OS X. Large graph. How can I scale it better? <a href="http://t.co/d6ZQX2MnqH">pic.twitter.com/d6ZQX2MnqH</a></p>&mdash; Lex Nederbragt (@lexnederbragt) <a href="https://twitter.com/lexnederbragt/status/502165603076288512">August 20, 2014</a></blockquote>
@@ -319,9 +331,8 @@ https://twitter.com/yokofakun/status/278086490809040896
 
 >
 > try the gexf+ #gephi output or another grafviz algo like neato
-> 
+>
 
 ## See also
 
-  * J4Make https://github.com/lindenb/j4make java equivalent of makefile2graph
-
+  * [J4Make](https://github.com/lindenb/j4make) java equivalent of makefile2graph
