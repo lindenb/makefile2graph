@@ -43,7 +43,7 @@ History:
 #include <assert.h>
 
 /* version */
-#define M2G_VERSION "1.5.0"
+#define M2G_VERSION "1.5.1"
 
 #define OUT_OF_MEMORY do { fprintf(stderr,"%s: %d : OUT_OF_MEMORY.\n",__FILE__,__LINE__); exit(EXIT_FAILURE);} while(0)
 
@@ -70,8 +70,17 @@ enum output_type {
 	output_mermaid,
 	output_plantuml,
 	output_deep,
-	output_list
+	output_list,
+	output_rawxml,
+	output_txt,
 	};
+
+typedef enum node_color
+{
+	WHITE,
+	GRAY,
+	BLACK,
+} NODE_COLOR;
 
 /** a Target */
 typedef struct target_t
@@ -88,6 +97,7 @@ typedef struct target_t
 	size_t level;
 	/* target is dirty */
 	int must_remake;
+	NODE_COLOR color;
 	}Target,*TargetPtr;
 
 /** the Makefile graph */
@@ -135,6 +145,7 @@ static TargetPtr TargetNew(GraphPtr graph,const char* name)
 	target->name=strdup(name);
 	if(target->name==NULL) OUT_OF_MEMORY;
 	target->level=0;
+	target->color = WHITE;
 	return target;
 	}
 
@@ -671,6 +682,120 @@ static void DumpGraphAsList(GraphPtr g,FILE* out)
 		}
 	}
 
+static void DumpLevelSpace(TargetPtr t, int level, const char* space, FILE *out)
+{
+	for (int i = 0; i < level; ++i) {
+		fputs(space, out);
+	}
+}
+
+typedef struct dfs_operations {
+	GraphPtr g;
+	FILE *out;
+	void (*DumpTargetPre) (TargetPtr, int, struct dfs_operations *);
+	void (*DumpTargetPost) (TargetPtr, int, struct dfs_operations *);
+	void (*DumpCircleInfo) (TargetPtr, int, struct dfs_operations *);
+} DfsOps, *DfsOpsPtr;
+
+static void DumpXmlTargetPre(TargetPtr t, int level, DfsOpsPtr ops)
+{
+	FILE *out = ops->out;
+	DumpLevelSpace(t, level, " ", out);
+	const char *label = targetLabel(ops->g, t->name);
+	fprintf(out, "<node id=\"n%zu\" dirty=\"%d\" label=\"", t->id, t->must_remake);
+	for (int i = 0; label[i] != 0; ++i) {
+		switch (t->name[i])
+		{
+		case '<':
+			fputs("&lt;", out);
+			break;
+		case '>':
+			fputs("&gt;", out);
+			break;
+		case '\"':
+			fputs("&apos;", out);
+			break;
+		case '\'':
+			fputs("&quot;", out);
+			break;
+		case '&':
+			fputs("&amp;", out);
+			break;
+		default:
+			fputc(label[i], out);
+			break;
+		}
+	}
+	fputs("\">\n", out);
+}
+
+static void DumpXmlTargetPost(TargetPtr t, int level, DfsOpsPtr ops)
+{
+	FILE *out = ops->out;
+	DumpLevelSpace(t, level, " ", out);
+	fputs("</node>\n", out);
+}
+
+static void DumpXmlCircleInfo(TargetPtr t, int level, DfsOpsPtr ops)
+{
+	FILE *out = ops->out;
+	DumpLevelSpace(t, level, " ", out);
+	fputs("There is a circle\n", out);
+}
+
+static void DumpDfsTarget(TargetPtr t, int level, DfsOpsPtr ops)
+{
+	if (t->color == GRAY) {
+		if (ops->DumpCircleInfo) {
+			ops->DumpCircleInfo(t, level, ops);
+		}
+		return;
+	}
+	t->color = GRAY;
+	if (ops->DumpTargetPre) {
+		ops->DumpTargetPre(t, level, ops);
+	}
+
+	for (int i = 0; i < t->n_children; ++i) {
+		DumpDfsTarget(t->children[i], level + 1, ops);
+	}
+	if (ops->DumpTargetPost) {
+		ops->DumpTargetPost(t, level, ops);
+	}
+	t->color = BLACK;
+}
+
+static void DumpTxtTargetPre(TargetPtr t, int level, DfsOpsPtr ops)
+{
+    FILE *out = ops->out;
+    DumpLevelSpace(t, level, "\t", out);
+    const char *label = targetLabel(ops->g, t->name);
+    fprintf(out, "%s\n", label);
+}
+
+static void DumpGraphAsRawXml(GraphPtr g, FILE *out)
+{
+	DfsOps ops = {
+		.g = g,
+		.out = out,
+		.DumpTargetPre = DumpXmlTargetPre,
+		.DumpTargetPost = DumpXmlTargetPost,
+		.DumpCircleInfo = DumpXmlCircleInfo,
+	};
+	DumpDfsTarget(g->root, 0, &ops);
+}
+
+static void DumpGraphAsMindMasterTxt(GraphPtr g, FILE *out)
+{
+	DfsOps ops = {
+		.g = g,
+		.out = out,
+		.DumpTargetPre = DumpTxtTargetPre,
+		.DumpTargetPost = NULL,
+		.DumpCircleInfo = NULL,
+	};
+	DumpDfsTarget(g->root, 0, &ops);
+}
 
 /** print usage */
 static void usage(FILE* out)
@@ -686,6 +811,7 @@ static void usage(FILE* out)
 	fputs("\t-f|--format (format)\n",out);
 	fputs("\t\t(d)ot graphiz dot output (default) (x)ml output\n", out);
 	fputs("\t\t(g)exf XML output (M)ermaid output (P)lantUML output\n",out);
+	fputs("\t\t(r)raw XML output (t)MindMaster txt output for big graph\n",out);
 	fputs("\t\t(E) print the deepest indepedent targets.\n",out);
 	fputs("\t\t(L)ist all targets.\n",out);
 	fputs("\t-b|--basename only print file basename.\n",out);
@@ -749,6 +875,8 @@ int main(int argc,char** argv)
 					case 'd':case 'D': out_format = output_dot; break;
 					case 'e':case 'E': out_format = output_deep; break;
 					case 'l':case 'L': out_format = output_list; break;
+					case 'r': case 'R': out_format = output_rawxml; break;
+					case 't': case 'T': out_format = output_txt; break;
 					default:
 						{
 						fprintf(stderr,"Bad value for --format=%s\n",optarg);
@@ -830,6 +958,12 @@ int main(int argc,char** argv)
 			break;
 		case output_list : 
 			DumpGraphAsList(app,stdout);
+			break;
+		case output_rawxml:
+			DumpGraphAsRawXml(app, stdout);
+			break;
+		case output_txt:
+			DumpGraphAsMindMasterTxt(app, stdout);
 			break;
 		case output_dot : 
 		default:
