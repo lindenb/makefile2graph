@@ -494,7 +494,7 @@ static void DumpGraphAsMermaid(GraphPtr g,FILE* out)
 		for(j=0; j< t->n_children; ++j)
 			{
 			TargetPtr c = t->children[j];
-			fprintf(out,"    n%zu --> n%zu\n", t->id , c->id);
+			fprintf(out,"    n%zu --> n%zu\n", c->id, t->id);
 			}
 		}
 	}
