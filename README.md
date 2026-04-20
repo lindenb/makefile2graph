@@ -51,7 +51,7 @@ make
 - -g|--graph-attributes: Sets attributes applied to the graph.
 - -n|--node-attributes: Sets attributes applied to all nodes.
 - -e|--edge-attributes: Sets attributes applied to all edges.
-- -e|--dirty-attributes: Sets attributes applied to dirty nodes only.
+- -d|--dirty-attributes: Sets attributes applied to dirty nodes only.
 - -v|--version print version
 
 ## Usage

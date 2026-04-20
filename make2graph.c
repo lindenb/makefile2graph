@@ -695,7 +695,7 @@ static void usage(FILE* out)
 	fputs("\t-g|--graph-attributes: Sets attributes applied to the graph.\n", out);
 	fputs("\t-n|--node-attributes: Sets attributes applied to all nodes.\n", out);
 	fputs("\t-e|--edge-attributes: Sets attributes applied to all edges.\n", out);
-	fputs("\t-e|--dirty-attributes: Sets attributes applied to dirty nodes only.\n", out);
+	fputs("\t-d|--dirty-attributes: Sets attributes applied to dirty nodes only.\n", out);
 	fputs("\t-v|--version print version.\n", out);
 	fputs("Notes:\n", out);
 	fputs("\tAttributes require arguments in the form: name1=value1,...\n", out);
