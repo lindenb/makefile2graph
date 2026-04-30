@@ -2,7 +2,7 @@ prefix = /usr/local
 bindir = $(prefix)/bin
 sharedir = $(prefix)/share
 docdir = $(sharedir)/doc
-pkgdocdir = $(sharedir)/makefile2graph
+pkgdocdir = $(docdir)/makefile2graph
 mandir = $(sharedir)/man
 man1dir = $(mandir)/man1
 
