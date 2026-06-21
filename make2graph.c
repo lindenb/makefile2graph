@@ -415,12 +415,10 @@ static void DumpGraphAsDot(GraphPtr g,FILE* out)
 			
 			if (t->must_remake && g->dirty_attributes!=NULL)
 				fprintf(out,
-						", %s];\n",
+						", %s",
 						(g->dirty_attributes));
-			else 
-				fprintf(out,
-					", color=\"%s\"];\n",
-					t->must_remake ? "red" : "forestgreen");
+
+			fputs("];\n", out);
 			}
 
 		}
