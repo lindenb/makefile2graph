@@ -233,10 +233,9 @@ static char* readline(FILE* in, size_t* level)
 	return p;
 	}
  
- /** get target, create it it doesn't exist */
-static TargetPtr GraphGetTarget(GraphPtr graph,const char* name)
-        {
-        TargetPtr t;
+ /** get target, or NULL if it doesn't exist */
+static TargetPtr GraphFindTarget(GraphPtr graph,const char* name)
+	{
 	Target key;
 	TargetPtr pkey=&key;
 	key.name=(char*)name;
@@ -247,11 +246,14 @@ static TargetPtr GraphGetTarget(GraphPtr graph,const char* name)
 		sizeof(TargetPtr),
 		TargetCmp
 		);
-	
-        if(prev!=0)
-		{
-		return *prev;
-	    	}
+	return prev==NULL ? NULL : *prev;
+	}
+
+ /** get target, create it it doesn't exist */
+static TargetPtr GraphGetTarget(GraphPtr graph,const char* name)
+        {
+        TargetPtr t=GraphFindTarget(graph,name);
+        if(t!=NULL) return t;
 
         t=TargetNew(graph,name);
 	graph->targets = (TargetPtr*)realloc(
@@ -265,6 +267,75 @@ static TargetPtr GraphGetTarget(GraphPtr graph,const char* name)
 
 	return t;
         }
+
+/** copy the children and the dirty flag of 'src' to 'dest' */
+static void TargetCopyChildren(TargetPtr dest,TargetPtr src)
+	{
+	size_t i;
+	if(dest==src) return;
+	for(i=0;i< src->n_children;++i)
+		{
+		if(src->children[i]==dest) continue;
+		TargetAddChildren(dest,src->children[i]);
+		}
+	if(src->must_remake) dest->must_remake=1;
+	}
+
+/** scan the data base printed by 'make -p', up to its end, and
+ * use its "Also makes:" lines to link targets built by the same recipe:
+ * grouped targets (a b &: c) and pattern rules with several targets (%.a %.b: %.c)
+ * https://github.com/lindenb/makefile2graph/issues/29
+ * https://github.com/lindenb/makefile2graph/issues/50
+ */
+static void GraphScanDatabase(GraphPtr graph,FILE* in)
+	{
+	char* line=NULL;
+	char* current=NULL;/* name of the last target seen in the data base */
+	size_t iLevel=0UL;
+	while((line=readline(in, &iLevel))!=NULL)
+		{
+		if(startsWith(line,"# Finished Make data base"))
+			{
+			free(line);
+			break;
+			}
+		else if(startsWith(line,"#  Also makes:"))
+			{
+			TargetPtr t= (current==NULL ? NULL : GraphFindTarget(graph,current));
+			char* tok=line+strlen("#  Also makes:");
+			while(t!=NULL && *tok!=0)
+				{
+				TargetPtr sibling;
+				size_t len;
+				while(*tok==' ') tok++;
+				len=strcspn(tok," ");
+				if(len==0) break;
+				char* name=StrNDup(tok,len);
+				if(name==NULL) OUT_OF_MEMORY;
+				tok+=len;
+				sibling=GraphFindTarget(graph,name);
+				free(name);
+				if(sibling==NULL) continue;
+				TargetCopyChildren(sibling,t);
+				TargetCopyChildren(t,sibling);
+				}
+			}
+		else if(iLevel==0 && line[0]!='#' && line[0]!=0 && strchr(line,':')!=NULL)
+			{
+			/* a rule 'target: prerequisites' */
+			free(current);
+			current=StrNDup(line,strcspn(line,":"));
+			if(current==NULL) OUT_OF_MEMORY;
+			}
+		else if(line[0]==0)
+			{
+			free(current);
+			current=NULL;
+			}
+		free(line);
+		}
+	free(current);
+	}
 
 /** scan the makefile -nd output */
 static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in, size_t level)
@@ -340,6 +411,10 @@ static void GraphScan(GraphPtr graph,TargetPtr root,FILE* in, size_t level)
 			free(tName);
 			free(line);
 			break;
+			}
+		    else if(startsWith(line,"# Make data base"))
+			{
+			GraphScanDatabase(graph,in);
 			}
 		    else if(startsWith(line,"Reading makefile "))
 			{
@@ -679,7 +754,7 @@ static void usage(FILE* out)
 	fprintf(out,"Version:\n\t%s\n",M2G_VERSION);
 	fputs("Author:\n\tPierre Lindenbaum PhD @yokofakun\n",out);
 	fputs("WWW:\n\thttps://github.com/lindenb/makefile2graph\n",out);
-	fputs("Usage:\n\tmake -Bnd | make2graph\n",out);
+	fputs("Usage:\n\tmake -Bndp | make2graph\n",out);
 	fputs(
 		"Options:\n"
 		"\t-h|--help help (this screen)\n",out);

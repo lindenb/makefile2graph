@@ -57,20 +57,22 @@ make
 ## Usage
 
 ```bash
-make -Bnd | make2graph > output.dot
+make -Bndp | make2graph > output.dot
 ```
 
 ```bash
-make -Bnd | make2graph | dot -Tpng -o out.png
+make -Bndp | make2graph | dot -Tpng -o out.png
 ```
 
 ```bash
-make -Bnd | make2graph --format x > output.xml
+make -Bndp | make2graph --format x > output.xml
 ```
 
 ```bash
-make -Bnd | make2graph --format p -g "skinparam BackgroundColor LightYellow" -n "BackgroundColor Peru" -e "skinparam ArrowColor Blue" -d "BackgroundColor Salmon" > output.puml
+make -Bndp | make2graph --format p -g "skinparam BackgroundColor LightYellow" -n "BackgroundColor Peru" -e "skinparam ArrowColor Blue" -d "BackgroundColor Salmon" > output.puml
 ```
+
+The `-p` option makes `make` print its database, which tells make2graph which targets are built together by one recipe: grouped targets (`a b &: c`) and pattern rules with several targets (`%.b %.c: %.a`). Without `-p`, only the first of these targets is connected to its prerequisites. See issues [#29](https://github.com/lindenb/makefile2graph/issues/29) and [#50](https://github.com/lindenb/makefile2graph/issues/50).
 
 ## Locale
 
